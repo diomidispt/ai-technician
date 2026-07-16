@@ -28,7 +28,7 @@ export default function Login() {
           <span className="brand-mark">J</span>
           <strong>Jensen AI Technical Assistant</strong>
         </div>
-        <p className="login-sub">Sign in to access the technical library.</p>
+        <p className="login-sub">Sign in to access the AI technical assistant.</p>
 
         <label>
           Username
