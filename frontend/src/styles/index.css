@@ -346,7 +346,7 @@ body {
   padding: 6px 0;
 }
 
-.composer button {
+.composer .send {
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
@@ -358,9 +358,64 @@ body {
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.composer button:disabled {
+.composer .send:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* --- Voice controls --- */
+.voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voice-lang {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.voice-lang button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.voice-lang button.active {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+.voice-lang button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.composer .mic {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.composer .mic.recording {
+  background: #e5484d;
+  border-color: #e5484d;
+  color: #fff;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .composer-hint {

@@ -7,7 +7,7 @@ history and audit logs will be added in later phases.
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -48,3 +48,13 @@ class Chunk(Base):
     embedding: Mapped[list[float]] = mapped_column(Vector(settings.embed_dim))
 
     document: Mapped["Document"] = relationship(back_populates="chunks")
+
+
+# Approximate-nearest-neighbour index for fast top-k cosine search at scale (pgvector HNSW).
+# Exact scan is fine for a few thousand chunks; this keeps queries fast as the library grows.
+Index(
+    "ix_chunks_embedding_hnsw",
+    Chunk.embedding,
+    postgresql_using="hnsw",
+    postgresql_ops={"embedding": "vector_cosine_ops"},
+)

@@ -6,10 +6,11 @@ via `make ingest` + the running stack, since it needs the local DB and model ser
 
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.db.repository import RetrievedChunk
 from app.main import app
 from app.rag.chunking import CHUNK_OVERLAP, CHUNK_SIZE, chunk_page
-from app.rag.pipeline import _build_context, _citations, _detect_language
+from app.rag.pipeline import _build_context, _citations, _detect_language, _select_relevant
 
 client = TestClient(app)
 
@@ -53,6 +54,31 @@ def test_citations_dedup_by_source_and_page():
         {"manual": "manual.pdf", "page": 5},
         {"manual": "manual.pdf", "page": 6},
     ]
+
+
+def _hit(page: int, distance: float) -> RetrievedChunk:
+    return RetrievedChunk(content=f"c{page}", filename="m.pdf", page=page, distance=distance)
+
+
+def test_select_relevant_refuses_when_best_beyond_gate():
+    # Out-of-scope: every chunk is far -> nothing relevant -> refusal path.
+    far = settings.sufficiency_max_distance + 0.1
+    assert _select_relevant([_hit(1, far), _hit(2, far + 0.05)]) == []
+
+
+def test_select_relevant_keeps_only_chunks_near_best():
+    best = 0.30
+    hits = [
+        _hit(2, best),                                   # keep (best)
+        _hit(4, best + settings.relevance_margin - 0.01),  # keep (within margin)
+        _hit(6, best + settings.relevance_margin + 0.05),  # drop (too far from best)
+    ]
+    pages = [h.page for h in _select_relevant(hits)]
+    assert pages == [2, 4]
+
+
+def test_select_relevant_empty():
+    assert _select_relevant([]) == []
 
 
 def test_build_context_numbers_passages():

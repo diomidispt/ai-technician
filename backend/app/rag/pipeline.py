@@ -56,6 +56,19 @@ def _citations(chunks: list[RetrievedChunk]) -> list[dict]:
     return out
 
 
+def _select_relevant(hits: list[RetrievedChunk]) -> list[RetrievedChunk]:
+    """Internal-first selection. `hits` is ordered by ascending distance.
+
+    Returns [] when even the closest chunk is beyond the sufficiency gate (library doesn't
+    cover it -> refuse). Otherwise keeps chunks within `relevance_margin` of the best match so
+    we ground on and cite the relevant pages, not loosely-related ones.
+    """
+    if not hits or hits[0].distance > settings.sufficiency_max_distance:
+        return []
+    cutoff = hits[0].distance + settings.relevance_margin
+    return [h for h in hits if h.distance <= cutoff]
+
+
 def _sse(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
@@ -70,8 +83,8 @@ async def run(question: str) -> AsyncIterator[dict]:
     finally:
         session.close()
 
-    # 2. Sufficiency check (internal-first). Keep only relevant-enough chunks.
-    relevant = [h for h in hits if h.distance <= settings.similarity_max_distance]
+    # 2. Sufficiency + relevance selection (internal-first).
+    relevant = _select_relevant(hits)
 
     if not relevant:
         msg = (

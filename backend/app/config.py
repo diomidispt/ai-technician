@@ -29,9 +29,14 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retrieval_top_k: int = 5
-    # Max cosine DISTANCE (0=identical, 2=opposite) to still count a chunk as relevant.
-    # Above this for every chunk => treat the library as insufficient (internal-first rule).
-    similarity_max_distance: float = 0.75
+    # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
+    # the library as not covering the question and refuse. Tuned for bge-m3 (in-scope best ~0.3,
+    # out-of-scope best ~0.7+).
+    sufficiency_max_distance: float = 0.6
+    # Citations/context: keep only chunks within this distance of the best match, so we don't
+    # cite loosely-related pages. Absolute thresholds don't separate them (distances cluster);
+    # a margin off the best match does.
+    relevance_margin: float = 0.1
 
     @property
     def cors_origins_list(self) -> list[str]:

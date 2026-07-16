@@ -12,11 +12,13 @@ A **real, local, $0 RAG assistant**. You ingest PDF manuals; the assistant retri
 relevant passages and answers **only** from them, with **citations** (file + page). Everything
 runs on your machine — no AWS, no API keys, no token cost:
 
-- **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding).
-- **Backend** — FastAPI: retrieve (pgvector) → ground → stream the answer with citations.
+- **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding, **🎤 voice input**).
+- **Backend** — FastAPI: retrieve (pgvector, HNSW) → sufficiency/relevance filter → ground →
+  stream the answer with **precise** citations. Out-of-scope questions are refused, not guessed.
 - **Model** — [Ollama](https://ollama.com) on your Mac: `aya-expanse:8b` (answers) +
   `bge-m3` (embeddings). **Multilingual** (Greek + English). Metal-accelerated, free, offline.
-- **Vector store** — Postgres + pgvector (Docker). Same engine as the AWS design (RDS), local.
+- **Vector store** — Postgres + pgvector with an **HNSW** index (Docker). Same engine as RDS.
+- **Voice** — dictate your question via the browser's speech recognition (EN/EL), no install.
 
 ```
 frontend (:5173) ─POST /api/chat─▶ backend (:8000) ─┬─▶ pgvector (:5432)  ← ingested PDFs
