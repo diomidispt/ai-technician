@@ -1,14 +1,21 @@
-# `ingestion/` — document ingestion pipeline (placeholder)
+# `ingestion/` — document ingestion
 
-**Phase: ingestion (S3 → pgvector)** — see CLAUDE.md §8. Not yet implemented.
+Turns PDFs into searchable, embedded chunks in pgvector.
 
-Reads documents **only from a private S3 bucket** (never OneDrive/Google directly). Own
-Dockerfile → ECR `jensen/ingestion` → Lambda, EventBridge-triggered.
+- **`sample_docs/`** — drop your PDF manuals here (git-ignored). Text-based PDFs work best.
+- The ingestion **code** currently lives in the backend package (`backend/app/ingestion/`) so
+  it shares the DB + embedding code directly. It will be split into its own deployable
+  (own Dockerfile → Lambda, EventBridge-triggered, reading from S3 + Textract OCR) when the
+  cloud phase lands — see CLAUDE.md §2 (Ingestion).
 
-Pipeline (CLAUDE.md §2 Ingestion):
-`EventBridge (schedule) → detect new/changed S3 objects → parse (PDF/Office) + Textract OCR
-→ chunk (~500-1000 tokens on section boundaries) → embed (Titan) → upsert into pgvector`.
+## Run (local)
 
-Shares chunking/embedding code with the backend — keep it in `shared/` or a common module.
+With the stack up (`make demo`) and Ollama running:
 
-Planned layout: `app/` (workers), `Dockerfile`, `tests/`, `pyproject.toml`.
+```bash
+make ingest        # ingests every PDF in ingestion/sample_docs/ into pgvector
+```
+
+Under the hood: `python -m app.ingestion.run /docs` — parse (pypdf) → chunk → embed
+(`nomic-embed-text` via Ollama) → upsert into Postgres. Re-running replaces a file's chunks
+(idempotent per filename).

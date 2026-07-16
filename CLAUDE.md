@@ -66,9 +66,14 @@ Infra (single environment — one app for Jensen):
 Greenfield. Build order: infra skeleton → Cognito + API auth → ingestion (S3→pgvector) →
 RAG core (retrieve/rerank/synthesize/citations) → web fallback → chat UI → admin console.
 
-**Phase 1 (done): chat UI over a streaming stub.** `frontend/` + `backend/` run locally; the
-backend streams a canned SSE reply — no RAG/auth/DB yet. The `/api/chat` SSE contract
-(`token` deltas then a `done` event) is what the real RAG core will reuse.
+**Local RAG works end-to-end.** `frontend/` + `backend/` + Postgres/pgvector run locally; you
+ingest PDFs and the assistant answers from them with citations. The model runs on **Ollama**
+locally ($0, offline) — `llama3.1:8b` for answers, `nomic-embed-text` for embeddings — behind
+`app/rag/ollama_client.py`, which is swappable for Claude/Bedrock later. The `/api/chat` SSE
+contract (`token` deltas then a `done` event carrying citations) is unchanged from the stub.
+
+Still to build: Cognito auth, conversation history + audit logs, web-search fallback, admin
+console, AWS infra + deploy. Local ingestion reads a folder (pypdf) instead of S3+Textract.
 
 See the Architecture & Decisions reference below for the phase plan and per-component detail.
 

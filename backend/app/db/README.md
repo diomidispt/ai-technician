@@ -1,7 +1,11 @@
-# `app/db/` — data access layer (placeholder)
+# `app/db/` — data access layer
 
-**Phase: ingestion / RAG core** (see CLAUDE.md §8).
+Postgres + pgvector access. All vector SQL lives here — **no raw SQL in route handlers**
+(CLAUDE.md §Conventions). Locally this is a Docker Postgres; in AWS it becomes RDS.
 
-All vector queries and conversation/audit-log access go through this layer — **no raw SQL
-scattered in route handlers** (CLAUDE.md §Conventions). Backs onto RDS PostgreSQL + pgvector
-(one DB: embeddings, chunk text, metadata, conversations, audit logs).
+- `models.py` — `Document` and `Chunk` (with a pgvector `Vector` embedding column).
+- `session.py` — engine, session factory, and `init_db()` (creates the `vector` extension +
+  tables; idempotent).
+- `repository.py` — upsert documents, add chunks, and `search_chunks()` (top-k cosine search).
+
+Conversation history + audit-log tables are added in a later phase.

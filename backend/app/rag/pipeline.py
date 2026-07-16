@@ -1,0 +1,84 @@
+"""RAG pipeline: retrieve internal chunks → ground the model → stream an answer with citations.
+
+Internal-first is enforced *here in code* (CLAUDE.md golden rule): if no retrieved chunk is
+relevant enough, we say the library doesn't cover it and recommend escalation — we do NOT let
+the model answer from general knowledge. (Web-search fallback is a later phase; locally there
+is none, so "not sufficient" ends the flow honestly.)
+"""
+
+import json
+from collections.abc import AsyncIterator
+
+from app.config import settings
+from app.db.repository import RetrievedChunk, search_chunks
+from app.db.session import SessionLocal
+from app.rag import ollama_client
+
+SYSTEM_PROMPT = """You are the Jensen technical support assistant for field technicians \
+servicing industrial laundry equipment.
+
+Rules you MUST follow:
+- Answer ONLY using the numbered CONTEXT passages provided. Do not use outside knowledge.
+- If the context does not contain the answer, say so plainly and recommend escalation. \
+Never guess part numbers, torque values, or error-code meanings.
+- Safety first: if a step involves electrical, steam, high-temperature, or moving parts, \
+state the safety precaution BEFORE the repair step.
+- Cite the passages you used inline like [1], [2] matching the CONTEXT numbers.
+- Be concise and practical. Use short steps."""
+
+
+def _build_context(chunks: list[RetrievedChunk]) -> str:
+    blocks = []
+    for i, c in enumerate(chunks, start=1):
+        blocks.append(f"[{i}] (source: {c.filename}, page {c.page})\n{c.content}")
+    return "\n\n".join(blocks)
+
+
+def _citations(chunks: list[RetrievedChunk]) -> list[dict]:
+    seen, out = set(), []
+    for c in chunks:
+        key = (c.filename, c.page)
+        if key not in seen:
+            seen.add(key)
+            out.append({"manual": c.filename, "page": c.page})
+    return out
+
+
+def _sse(event: str, payload: dict) -> dict:
+    return {"event": event, "data": json.dumps(payload)}
+
+
+async def run(question: str) -> AsyncIterator[dict]:
+    """Yield SSE events (`token` deltas then a terminal `done` carrying citations)."""
+    # 1. Embed the question and search the internal library.
+    query_embedding = await ollama_client.embed(question)
+    session = SessionLocal()
+    try:
+        hits = search_chunks(session, query_embedding, settings.retrieval_top_k)
+    finally:
+        session.close()
+
+    # 2. Sufficiency check (internal-first). Keep only relevant-enough chunks.
+    relevant = [h for h in hits if h.distance <= settings.similarity_max_distance]
+
+    if not relevant:
+        msg = (
+            "I couldn't find this in the internal manual library, so I can't answer it "
+            "reliably. Please rephrase, or escalate to engineering.\n\n"
+            "_(Tip: ingest the relevant manual so I can answer from it.)_"
+        )
+        for word in msg.split(" "):
+            yield _sse("token", {"delta": word + " "})
+        yield _sse("done", {"citations": []})
+        return
+
+    # 3. Synthesize from ONLY the retrieved chunks, streaming tokens as they arrive.
+    context = _build_context(relevant)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"},
+    ]
+    async for delta in ollama_client.chat_stream(messages):
+        yield _sse("token", {"delta": delta})
+
+    yield _sse("done", {"citations": _citations(relevant)})

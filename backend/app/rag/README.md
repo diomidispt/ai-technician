@@ -1,17 +1,16 @@
-# `app/rag/` — RAG core (placeholder)
+# `app/rag/` — RAG core
 
-**Phase: RAG core** (after ingestion; see CLAUDE.md §8).
+The internal-first retrieval + generation pipeline.
 
-The internal-first retrieval pipeline lives here. Per-query flow (CLAUDE.md §2 Backend):
+- `ollama_client.py` — the only code that talks to the model provider (embeddings + streaming
+  chat). Swap for a Claude/Bedrock client later with the same methods; nothing else changes.
+- `chunking.py` — split page text into embed-sized, overlapping chunks (keeps page numbers).
+- `pipeline.py` — the flow: embed query → `search_chunks` (pgvector) → **sufficiency check** →
+  if insufficient, say so + recommend escalation; else synthesize from ONLY those chunks and
+  stream tokens, returning citations.
 
-1. Embed the (optionally rewritten) query.
-2. Vector search in pgvector → top-k chunks (via `app/db/`, never raw SQL in routes).
-3. Rerank + sufficiency check.
-4. If sufficient → synthesize with Claude using ONLY those chunks, **with citations**.
-5. If not → web-search fallback, clearly flagged as external.
+**Golden rules enforced here in code:** internal library first (no answering from general
+knowledge when retrieval is insufficient), every answer carries citations, safety-first in the
+system prompt. Web-search fallback is a later phase — locally, "insufficient" ends the flow.
 
-**Golden rule:** internal-first ordering is enforced *in code here* (step 5 runs only if
-step 4 fails), never left to the model. Every answer carries citations.
-
-Wire-in point: `stream_answer()` in `app/api/chat.py` calls into this module and yields the
-same `token` / `done` SSE events the frontend already consumes.
+Wire-in point: `app/api/chat.py` calls `pipeline.run()` and streams its SSE events.

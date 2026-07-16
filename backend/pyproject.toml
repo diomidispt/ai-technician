@@ -9,12 +9,16 @@ dependencies = [
     "sse-starlette>=2.1",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    "httpx>=0.27",          # calls the Ollama HTTP API (embeddings + chat)
+    "sqlalchemy>=2.0",      # ORM / DB layer (no raw SQL in routes)
+    "psycopg[binary]>=3.2", # PostgreSQL driver
+    "pgvector>=0.3",        # SQLAlchemy Vector type + operators
+    "pypdf>=4.2",           # PDF text extraction for ingestion
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
-    "httpx>=0.27",
     "ruff>=0.6",
 ]
 

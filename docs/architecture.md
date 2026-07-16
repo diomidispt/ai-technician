@@ -43,10 +43,17 @@ sync the client chooses); nothing in our stack holds credentials to their tenant
 
 > Model names are illustrative — exact Bedrock model IDs are configuration, not architecture.
 
-## What runs today (Phase 1)
-Only the **Web app + RAG Orchestrator** boxes are live, and the orchestrator streams a
-**canned** reply — no Bedrock, no DB, no Cognito, no ingestion. Everything else is a labelled
-placeholder. This keeps the demo **free**: no tokens, no billable AWS resources.
+## What runs today (local, $0)
+The **Web app → RAG Orchestrator → vector store → ingestion** path is live end-to-end,
+running entirely on your machine:
+- **RAG Orchestrator** = FastAPI locally (not Lambda yet).
+- **Claude on Bedrock** is replaced by **Ollama on your Mac** (`llama3.1:8b` + `nomic-embed-text`)
+  behind a swappable client — $0, offline, no tokens.
+- **RDS + pgvector** = **Postgres + pgvector in Docker**.
+- **Ingestion** reads a local folder with **pypdf** (no S3, no Textract OCR).
+
+Not yet built: **Cognito**, **Web Search** fallback, conversation/audit tables, admin console,
+and all AWS infra. Those stay labelled placeholders until their phase.
 
 ## Decision records
 

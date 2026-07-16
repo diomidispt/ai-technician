@@ -27,6 +27,9 @@ crash.log
 *.tfvars
 !*.tfvars.example
 
+# --- Local sample data (PDFs are not committed) ---
+ingestion/sample_docs/*.pdf
+
 # --- OS / editor ---
 .DS_Store
 .idea/

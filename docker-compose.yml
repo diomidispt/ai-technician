@@ -1,7 +1,8 @@
-# Local dev stack.
+# Local dev stack: frontend (Vite) + backend (FastAPI) + postgres (pgvector).
 #
-# Phase 1 (now): backend (FastAPI streaming stub) + frontend (Vite dev server).
-# Later phases uncomment postgres+pgvector and minio (S3) — see CLAUDE.md §Commands.
+# The LLM + embeddings run in **Ollama on your Mac host** (not in Docker) — Metal-accelerated
+# and free. The backend container reaches it via host.docker.internal:11434.
+# Start Ollama first:  ollama serve   (and `ollama pull llama3.1:8b nomic-embed-text`)
 
 services:
   backend:
@@ -12,9 +13,17 @@ services:
     environment:
       CORS_ORIGINS: "http://localhost:5173"
       AWS_REGION: "eu-central-1"
+      DATABASE_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/jensen"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
     volumes:
       - ./backend/app:/app/app
+      - ./ingestion/sample_docs:/docs   # drop PDFs here, then `make ingest`
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     image: node:22-alpine
@@ -32,30 +41,21 @@ services:
     depends_on:
       - backend
 
-  # --- Phase 2+ (ingestion / RAG): uncomment when the DB layer lands ---
-  # postgres:
-  #   image: pgvector/pgvector:pg16
-  #   environment:
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: postgres
-  #     POSTGRES_DB: jensen
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #
-  # minio:                      # local stand-in for the S3 document bucket
-  #   image: minio/minio
-  #   command: server /data --console-address ":9001"
-  #   ports:
-  #     - "9000:9000"
-  #     - "9001:9001"
-  #   environment:
-  #     MINIO_ROOT_USER: minioadmin
-  #     MINIO_ROOT_PASSWORD: minioadmin
-  #   volumes:
-  #     - miniodata:/data
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: jensen
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jensen"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
-# volumes:
-#   pgdata:
-#   miniodata:
+volumes:
+  pgdata:
