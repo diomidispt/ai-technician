@@ -1,20 +1,55 @@
-"""SQLAlchemy models for the vector store.
+"""SQLAlchemy models.
 
-One database holds documents + their chunked, embedded text (CLAUDE.md §2 Data). Conversation
-history and audit logs will be added in later phases.
+One database holds documents + their chunked, embedded text, plus users and an audit log
+(CLAUDE.md §2 Data). Users/audit are the local stand-ins for Cognito + the RDS audit tables.
 """
 
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import settings
 
 
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    """A person who can sign in. Local simulation of a Cognito user + group.
+
+    `role` mirrors a Cognito group ("admin" | "technician"). `is_active` mirrors
+    AdminDisableUser (instant revocation — checked on every request). `access_expires`
+    mirrors the `custom:access_expires` contractor-expiry attribute.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(20), default="technician")  # admin | technician
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    access_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class AuditLog(Base):
+    """One row per answered question — the local stand-in for the RDS audit log."""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_email: Mapped[str] = mapped_column(String(320), index=True)
+    question: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(20))  # internal | web | none
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 class Document(Base):

@@ -1,11 +1,13 @@
-// Client for POST /api/chat — consumes the backend SSE contract:
-//   event: token   data: {"delta": "..."}   (zero or more, in order)
-//   event: done    data: {"citations": [...]} (terminal)
+// Client for POST /api/chat (authenticated) — consumes the backend SSE contract:
+//   event: token   data: {"delta": "..."}                          (zero or more, in order)
+//   event: done    data: {"source": "internal|web|none", "citations": [...]}  (terminal)
 //
-// This mirrors the backend contract in backend/app/api/chat.py. When RAG lands the
-// backend yields real deltas + citations; this parser does not change.
+// Citations are {manual, page} for internal answers and {title, url} for web-fallback answers.
+
+import { getToken } from "./client";
 
 export type ChatRole = "user" | "assistant";
+export type AnswerSource = "internal" | "web" | "none";
 
 export interface ChatMessage {
   role: ChatRole;
@@ -13,14 +15,16 @@ export interface ChatMessage {
 }
 
 export interface Citation {
-  manual: string;
+  manual?: string;
   page?: string | number;
   section?: string;
+  title?: string;
+  url?: string;
 }
 
 interface StreamHandlers {
   onToken: (delta: string) => void;
-  onDone: (citations: Citation[]) => void;
+  onDone: (source: AnswerSource, citations: Citation[]) => void;
   onError: (error: Error) => void;
 }
 
@@ -31,9 +35,12 @@ export async function streamChat(
 ): Promise<void> {
   let response: Response;
   try {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     response = await fetch("/api/chat", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ messages }),
       signal,
     });
@@ -42,6 +49,7 @@ export async function streamChat(
     return;
   }
 
+  if (response.status === 401) window.dispatchEvent(new Event("auth:unauthorized"));
   if (!response.ok || !response.body) {
     handlers.onError(new Error(`Request failed: ${response.status}`));
     return;
@@ -95,7 +103,7 @@ function dispatchEvent(rawEvent: string, handlers: StreamHandlers): void {
     if (event === "token" && typeof parsed.delta === "string") {
       handlers.onToken(parsed.delta);
     } else if (event === "done") {
-      handlers.onDone(parsed.citations ?? []);
+      handlers.onDone((parsed.source as AnswerSource) ?? "internal", parsed.citations ?? []);
     }
   } catch {
     // Ignore malformed frames — the stream keeps going.

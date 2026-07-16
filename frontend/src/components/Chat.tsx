@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { streamChat, type ChatMessage, type Citation } from "../api/chat";
+import { streamChat, type AnswerSource, type ChatMessage, type Citation } from "../api/chat";
 import Composer from "./Composer";
 import MessageList from "./MessageList";
 
 export interface UiMessage extends ChatMessage {
   id: string;
   citations?: Citation[];
+  source?: AnswerSource;
   streaming?: boolean;
 }
 
@@ -46,7 +47,8 @@ export default function Chat() {
         history,
         {
           onToken: (delta) => patch((m) => ({ ...m, content: m.content + delta })),
-          onDone: (citations) => patch((m) => ({ ...m, citations, streaming: false })),
+          onDone: (source, citations) =>
+            patch((m) => ({ ...m, source, citations, streaming: false })),
           onError: (err) =>
             patch((m) => ({
               ...m,

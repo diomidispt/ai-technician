@@ -8,22 +8,29 @@ Answers troubleshooting questions from an internal manual library first, web onl
 
 ## What runs today
 
-A **real, local, $0 RAG assistant**. You ingest PDF manuals; the assistant retrieves the
-relevant passages and answers **only** from them, with **citations** (file + page). Everything
-runs on your machine — no AWS, no API keys, no token cost:
+A **real, local, $0 RAG assistant** with **login, roles, an admin console, and a web
+fallback**. You sign in; ask troubleshooting questions; the assistant answers from the ingested
+PDF manuals first (**with citations**), and only falls back to a web search when the library
+doesn't cover it. Everything runs on your machine — no AWS, no API keys, no token cost:
 
+- **Auth (local, simulates Cognito)** — JWT login + roles (**admin** / **technician**), instant
+  disable (revocation) and access-expiry dates. Demo logins: `admin`/`admin`, `technician`/`technician`.
+- **Admin console** — manage users, **upload & ingest PDFs** from the browser, view a **query
+  audit log** (who asked what). Admins only.
 - **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding, **🎤 voice input**).
-- **Backend** — FastAPI: retrieve (pgvector, HNSW) → sufficiency/relevance filter → ground →
-  stream the answer with **precise** citations. Out-of-scope questions are refused, not guessed.
-- **Model** — [Ollama](https://ollama.com) on your Mac: `aya-expanse:8b` (answers) +
-  `bge-m3` (embeddings). **Multilingual** (Greek + English). Metal-accelerated, free, offline.
+- **Backend** — FastAPI: auth guard → retrieve (pgvector, HNSW) → sufficiency filter → ground →
+  stream with **precise** citations; **web-search fallback** (DuckDuckGo) when the library is
+  insufficient, clearly flagged as external.
+- **Model** — [Ollama](https://ollama.com): `aya-expanse:8b` (answers) + `bge-m3` (embeddings).
+  **Multilingual** (Greek + English). Metal-accelerated, free, offline.
 - **Vector store** — Postgres + pgvector with an **HNSW** index (Docker). Same engine as RDS.
-- **Voice** — dictate your question via the browser's speech recognition (EN/EL), no install.
 
 ```
-frontend (:5173) ─POST /api/chat─▶ backend (:8000) ─┬─▶ pgvector (:5432)  ← ingested PDFs
-       ▲                                             └─▶ Ollama (:11434, on host)
-       └──────────── SSE token stream + citations ◀──┘
+frontend (:5173) ─login─▶ backend (:8000): /api/auth · /api/admin · /api/chat
+       │                        ├─▶ pgvector (:5432)   ← ingested PDFs, users, audit
+       │                        ├─▶ Ollama (:11434, host)
+       ▲                        └─▶ DuckDuckGo (fallback only)
+       └──── SSE token stream + citations ◀───┘
 ```
 
 ## Run it
@@ -43,16 +50,21 @@ ollama pull bge-m3
 make demo                            # frontend :5173, backend :8000, postgres :5432
 ```
 
-### 3. Ingest some manuals
+### 3. Sign in and go
 
-Drop text-based PDFs into [`ingestion/sample_docs/`](./ingestion/sample_docs/), then:
+Open **http://localhost:5173** and sign in:
+- **admin** / **admin** — chat **+** the admin console (users, document upload, audit log)
+- **technician** / **technician** — chat only
+
+**Ingest manuals** either from the **Admin → Library** tab (upload a PDF), or from the CLI:
 
 ```bash
-make ingest                          # parse → chunk → embed → pgvector
+make ingest                          # ingest every PDF in ingestion/sample_docs/
 ```
 
-Open **http://localhost:5173** and ask about something in your PDFs. If the library doesn't
-cover a question, the assistant says so and recommends escalation — it won't make things up.
+Ask about something in your PDFs (English or Greek). If the library doesn't cover it, the
+assistant falls back to a **web search** (flagged as external) — set `WEB_FALLBACK_ENABLED=false`
+to keep it fully offline.
 
 > No Docker? Run Postgres yourself (or just the `postgres` service via
 > `docker compose up -d postgres`), then `make backend-dev` and `make frontend-dev`, and

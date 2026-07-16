@@ -66,14 +66,17 @@ Infra (single environment — one app for Jensen):
 Greenfield. Build order: infra skeleton → Cognito + API auth → ingestion (S3→pgvector) →
 RAG core (retrieve/rerank/synthesize/citations) → web fallback → chat UI → admin console.
 
-**Local RAG works end-to-end.** `frontend/` + `backend/` + Postgres/pgvector run locally; you
-ingest PDFs and the assistant answers from them with citations. The model runs on **Ollama**
-locally ($0, offline) — `aya-expanse:8b` for answers, `bge-m3` for embeddings (multilingual: Greek + English) — behind
-`app/rag/ollama_client.py`, which is swappable for Claude/Bedrock later. The `/api/chat` SSE
-contract (`token` deltas then a `done` event carrying citations) is unchanged from the stub.
+**Local MVP works end-to-end.** `frontend/` + `backend/` + Postgres/pgvector run locally with:
+- **Auth + roles** — local JWT login simulating Cognito: `admin` / `technician`, instant
+  disable, access-expiry (`app/auth/`). Real Cognito swaps in behind the same route guards.
+- **Admin console** — manage users, upload/ingest PDFs, view the query audit log (`app/api/admin.py`).
+- **RAG** — internal-first retrieval (pgvector/HNSW) with citations; **web-search fallback**
+  (DuckDuckGo, `app/rag/websearch.py`) only when the library is insufficient; each query audited.
+- **Model** — Ollama ($0, offline): `aya-expanse:8b` answers + `bge-m3` embeddings (multilingual),
+  behind `app/rag/ollama_client.py` — swappable for Claude/Bedrock later.
 
-Still to build: Cognito auth, conversation history + audit logs, web-search fallback, admin
-console, AWS infra + deploy. Local ingestion reads a folder (pypdf) instead of S3+Textract.
+Still to build for cloud: real Cognito, RDS (vs local Postgres), S3+Textract ingestion (vs
+folder/pypdf), Terraform infra + deploy. The app logic doesn't change — only the backing services.
 
 See the Architecture & Decisions reference below for the phase plan and per-component detail.
 

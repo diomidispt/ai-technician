@@ -1,23 +1,21 @@
-"""Chat endpoint — Server-Sent Events (SSE) streaming.
+"""Chat endpoint — authenticated, Server-Sent Events (SSE) streaming.
 
-## The streaming contract
+`POST /api/chat` (requires a bearer token) with `{"messages": [{"role","content"}]}` returns
+an SSE stream:
 
-`POST /api/chat` with `{"messages": [{"role": "user", "content": "..."}]}` returns an SSE
-stream of named events:
+  event: token   data: {"delta": "<text chunk>"}
+  event: done    data: {"source": "internal|web|none", "citations": [...]}
 
-  event: token   data: {"delta": "<text chunk>"}      # zero or more, in order
-  event: done    data: {"citations": [{"manual","page"}]}   # exactly one, terminal
-
-The answer is produced by the RAG pipeline (`app/rag/pipeline.py`): retrieve internal chunks
-→ ground the local model → stream tokens → return citations. Internal-first + citations are
-enforced in code (CLAUDE.md golden rules).
+Citations are `{manual, page}` for internal answers and `{title, url}` for web-fallback answers.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from app.auth.dependencies import get_current_user
 from app.config import settings
+from app.db.models import User
 from app.rag import pipeline
 
 router = APIRouter()
@@ -25,8 +23,12 @@ router = APIRouter()
 
 @router.get("/meta")
 async def meta() -> dict:
-    """What the UI shows about the running system (e.g. which model answers)."""
-    return {"answer_model": settings.answer_model, "embed_model": settings.embed_model}
+    """What the UI shows about the running system (which model answers, web fallback on/off)."""
+    return {
+        "answer_model": settings.answer_model,
+        "embed_model": settings.embed_model,
+        "web_fallback": settings.web_fallback_enabled,
+    }
 
 
 class Message(BaseModel):
@@ -39,9 +41,11 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest) -> EventSourceResponse:
+async def chat(
+    request: ChatRequest, user: User = Depends(get_current_user)
+) -> EventSourceResponse:
     question = next(
         (m.content for m in reversed(request.messages) if m.role == "user"),
         "",
     )
-    return EventSourceResponse(pipeline.run(question))
+    return EventSourceResponse(pipeline.run(question, user.email))

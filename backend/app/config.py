@@ -38,6 +38,27 @@ class Settings(BaseSettings):
     # a margin off the best match does.
     relevance_margin: float = 0.1
 
+    # --- Auth (local simulation of Cognito; JWT signed with a local secret) ---
+    # Override JWT_SECRET in production. In real AWS this becomes Cognito, not a local secret.
+    jwt_secret: str = "dev-only-change-me-please-32byte-minimum-secret"
+    jwt_expire_minutes: int = 480  # 8h working day
+    # Seeded on startup if the users table is empty (so you can log in immediately).
+    seed_admin_email: str = "admin"
+    seed_admin_password: str = "admin"
+    seed_tech_email: str = "technician"
+    seed_tech_password: str = "technician"
+
+    # --- Ingestion / document library ---
+    # Where admin-uploaded PDFs are stored + ingested from. In the container this is /docs
+    # (a mounted volume); locally it's the sample_docs folder.
+    docs_dir: str = "/docs"
+
+    # --- Web-search fallback (DuckDuckGo, no API key) ---
+    # Runs ONLY when the internal library is insufficient (internal-first rule). Sends the
+    # query out, so it's not fully offline. Set WEB_FALLBACK_ENABLED=false to keep it offline.
+    web_fallback_enabled: bool = True
+    web_results: int = 5
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
