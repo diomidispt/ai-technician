@@ -14,7 +14,7 @@ runs on your machine — no AWS, no API keys, no token cost:
 
 - **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding).
 - **Backend** — FastAPI: retrieve (pgvector) → ground → stream the answer with citations.
-- **Model** — [Ollama](https://ollama.com) on your Mac: `llama3.1:8b` (answers) +
+- **Model** — [Ollama](https://ollama.com) on your Mac: `llama3.2:3b` (answers) +
   `nomic-embed-text` (embeddings). Metal-accelerated, free, offline.
 - **Vector store** — Postgres + pgvector (Docker). Same engine as the AWS design (RDS), local.
 

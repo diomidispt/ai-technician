@@ -20,7 +20,10 @@ export default function MessageList({ messages }: { messages: UiMessage[] }) {
       <div className="message-list empty">
         <div className="empty-state">
           <h1>How can I help with your service call?</h1>
-          <p>Ask a troubleshooting question about Jensen laundry equipment.</p>
+          <p>
+            Ask a troubleshooting question. Answers come from the manuals in your library —
+            with source citations. If it's not in the manuals, I'll say so.
+          </p>
           <ul className="suggestions">
             {SUGGESTIONS.map((s) => (
               <li key={s}>{s}</li>

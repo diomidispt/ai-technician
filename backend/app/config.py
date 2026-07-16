@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # --- Ollama (local LLM + embeddings; $0, on-device) ---
     ollama_base_url: str = "http://localhost:11434"
-    answer_model: str = "llama3.1:8b"
+    answer_model: str = "llama3.2:3b"  # lightweight, fast on 16 GB; set ANSWER_MODEL to override
     embed_model: str = "nomic-embed-text"
     embed_dim: int = 768  # nomic-embed-text output dimension
 

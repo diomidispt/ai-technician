@@ -15,6 +15,7 @@ services:
       AWS_REGION: "eu-central-1"
       DATABASE_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/jensen"
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      ANSWER_MODEL: "llama3.2:3b"   # lightweight; change to llama3.1:8b for stronger answers
     volumes:
       - ./backend/app:/app/app
       - ./ingestion/sample_docs:/docs   # drop PDFs here, then `make ingest`

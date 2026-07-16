@@ -11,7 +11,7 @@ export default function App() {
             <span className="brand-sub">Field service · industrial laundry equipment</span>
           </div>
         </div>
-        <span className="demo-badge">UI demo · RAG not wired yet</span>
+        <span className="demo-badge">Answers from your manual library · with citations</span>
       </header>
       <Chat />
     </div>

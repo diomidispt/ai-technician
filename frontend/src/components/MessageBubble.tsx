@@ -24,8 +24,7 @@ export default function MessageBubble({ message }: { message: UiMessage }) {
           </div>
         )}
 
-        {/* Citation slot — empty in phase 1. RAG answers will render manual/page here
-            (CLAUDE.md golden rule: every answer carries citations). */}
+        {/* Source citations for the answer (manual + page) — CLAUDE.md golden rule. */}
         {message.citations && message.citations.length > 0 && (
           <div className="citations">
             {message.citations.map((c, i) => (

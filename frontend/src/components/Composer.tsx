@@ -39,7 +39,7 @@ export default function Composer({ onSend, disabled }: Props) {
         </button>
       </div>
       <p className="composer-hint">
-        Enter to send · Shift+Enter for a new line · answers are a canned demo for now
+        Enter to send · Shift+Enter for a new line · answers come from ingested manuals, with citations
       </p>
     </div>
   );
