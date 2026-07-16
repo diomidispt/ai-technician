@@ -47,7 +47,7 @@ sync the client chooses); nothing in our stack holds credentials to their tenant
 The **Web app → RAG Orchestrator → vector store → ingestion** path is live end-to-end,
 running entirely on your machine:
 - **RAG Orchestrator** = FastAPI locally (not Lambda yet).
-- **Claude on Bedrock** is replaced by **Ollama on your Mac** (`llama3.2:3b` + `nomic-embed-text`)
+- **Claude on Bedrock** is replaced by **Ollama on your Mac** (`aya-expanse:8b` + `bge-m3` (multilingual: Greek + English))
   behind a swappable client — $0, offline, no tokens.
 - **RDS + pgvector** = **Postgres + pgvector in Docker**.
 - **Ingestion** reads a local folder with **pypdf** (no S3, no Textract OCR).

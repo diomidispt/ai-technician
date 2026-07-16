@@ -7,6 +7,7 @@ is none, so "not sufficient" ends the flow honestly.)
 """
 
 import json
+import re
 from collections.abc import AsyncIterator
 
 from app.config import settings
@@ -14,10 +15,21 @@ from app.db.repository import RetrievedChunk, search_chunks
 from app.db.session import SessionLocal
 from app.rag import ollama_client
 
+# Greek + Coptic and Greek Extended blocks. Reliable enough to tell Greek from English.
+_GREEK_CHARS = re.compile(r"[Ͱ-Ͽἀ-῿]")
+
+
+def _detect_language(text: str) -> str:
+    """Pick the answer language deterministically instead of trusting the model to detect it."""
+    return "Greek" if _GREEK_CHARS.search(text) else "English"
+
 SYSTEM_PROMPT = """You are the Jensen technical support assistant for field technicians \
 servicing industrial laundry equipment.
 
 Rules you MUST follow:
+- LANGUAGE: Write your ENTIRE reply in the SAME language as the QUESTION. If the question is \
+in English, answer in English. If it is in Greek, answer in Greek. Match the question's \
+language exactly — the CONTEXT may be in a different language; translate from it as needed.
 - Answer ONLY using the numbered CONTEXT passages provided. Do not use outside knowledge.
 - If the context does not contain the answer, say so plainly and recommend escalation. \
 Never guess part numbers, torque values, or error-code meanings.
@@ -74,9 +86,16 @@ async def run(question: str) -> AsyncIterator[dict]:
 
     # 3. Synthesize from ONLY the retrieved chunks, streaming tokens as they arrive.
     context = _build_context(relevant)
+    language = _detect_language(question)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}"},
+        {
+            "role": "user",
+            "content": (
+                f"CONTEXT:\n{context}\n\nQUESTION: {question}\n\n"
+                f"Write your entire answer in {language}."
+            ),
+        },
     ]
     async for delta in ollama_client.chat_stream(messages):
         yield _sse("token", {"delta": delta})

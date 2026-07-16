@@ -68,7 +68,7 @@ RAG core (retrieve/rerank/synthesize/citations) → web fallback → chat UI →
 
 **Local RAG works end-to-end.** `frontend/` + `backend/` + Postgres/pgvector run locally; you
 ingest PDFs and the assistant answers from them with citations. The model runs on **Ollama**
-locally ($0, offline) — `llama3.2:3b` for answers, `nomic-embed-text` for embeddings — behind
+locally ($0, offline) — `aya-expanse:8b` for answers, `bge-m3` for embeddings (multilingual: Greek + English) — behind
 `app/rag/ollama_client.py`, which is swappable for Claude/Bedrock later. The `/api/chat` SSE
 contract (`token` deltas then a `done` event carrying citations) is unchanged from the stub.
 

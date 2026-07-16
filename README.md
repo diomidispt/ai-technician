@@ -14,8 +14,8 @@ runs on your machine — no AWS, no API keys, no token cost:
 
 - **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding).
 - **Backend** — FastAPI: retrieve (pgvector) → ground → stream the answer with citations.
-- **Model** — [Ollama](https://ollama.com) on your Mac: `llama3.2:3b` (answers) +
-  `nomic-embed-text` (embeddings). Metal-accelerated, free, offline.
+- **Model** — [Ollama](https://ollama.com) on your Mac: `aya-expanse:8b` (answers) +
+  `bge-m3` (embeddings). **Multilingual** (Greek + English). Metal-accelerated, free, offline.
 - **Vector store** — Postgres + pgvector (Docker). Same engine as the AWS design (RDS), local.
 
 ```
@@ -31,8 +31,8 @@ frontend (:5173) ─POST /api/chat─▶ backend (:8000) ─┬─▶ pgvector (
 ```bash
 brew install ollama
 ollama serve &                       # leave running
-ollama pull llama3.1:8b
-ollama pull nomic-embed-text
+ollama pull aya-expanse:8b
+ollama pull bge-m3
 ```
 
 ### 2. Start the stack

@@ -9,9 +9,17 @@ from fastapi.testclient import TestClient
 from app.db.repository import RetrievedChunk
 from app.main import app
 from app.rag.chunking import CHUNK_OVERLAP, CHUNK_SIZE, chunk_page
-from app.rag.pipeline import _build_context, _citations
+from app.rag.pipeline import _build_context, _citations, _detect_language
 
 client = TestClient(app)
+
+
+def test_detect_language():
+    assert _detect_language("How do I service the steam valve?") == "English"
+    assert _detect_language("What does E14 mean?") == "English"
+    assert _detect_language("Ο κάδος δεν γυρίζει, τι να ελέγξω;") == "Greek"
+    # Mixed (Greek question referencing an English code) still detects Greek.
+    assert _detect_language("Τι σημαίνει ο κωδικός E14;") == "Greek"
 
 
 def test_healthz():

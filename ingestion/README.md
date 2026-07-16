@@ -17,5 +17,5 @@ make ingest        # ingests every PDF in ingestion/sample_docs/ into pgvector
 ```
 
 Under the hood: `python -m app.ingestion.run /docs` — parse (pypdf) → chunk → embed
-(`nomic-embed-text` via Ollama) → upsert into Postgres. Re-running replaces a file's chunks
+(`bge-m3` via Ollama) → upsert into Postgres. Re-running replaces a file's chunks
 (idempotent per filename).

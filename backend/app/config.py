@@ -22,9 +22,10 @@ class Settings(BaseSettings):
 
     # --- Ollama (local LLM + embeddings; $0, on-device) ---
     ollama_base_url: str = "http://localhost:11434"
-    answer_model: str = "llama3.2:3b"  # lightweight, fast on 16 GB; set ANSWER_MODEL to override
-    embed_model: str = "nomic-embed-text"
-    embed_dim: int = 768  # nomic-embed-text output dimension
+    # Multilingual (answers in the user's language, incl. Greek). Set ANSWER_MODEL to override.
+    answer_model: str = "aya-expanse:8b"  # multilingual; good Greek (llama3.2:3b = faster English)
+    embed_model: str = "bge-m3"  # multilingual embeddings -> cross-lingual retrieval
+    embed_dim: int = 1024  # bge-m3 output dimension (must match the embedding model)
 
     # --- Retrieval ---
     retrieval_top_k: int = 5
