@@ -26,7 +26,7 @@ export default function Login() {
       <form className="login-card" onSubmit={onSubmit}>
         <div className="brand login-brand">
           <span className="brand-mark">J</span>
-          <strong>Jensen Technical Assistant</strong>
+          <strong>Jensen AI Technical Assistant</strong>
         </div>
         <p className="login-sub">Sign in to access the technical library.</p>
 
@@ -56,11 +56,6 @@ export default function Login() {
         <button type="submit" className="login-btn" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
-
-        <p className="login-hint">
-          Demo accounts: <code>admin</code> / <code>admin</code> · <code>technician</code> /{" "}
-          <code>technician</code>
-        </p>
       </form>
     </div>
   );

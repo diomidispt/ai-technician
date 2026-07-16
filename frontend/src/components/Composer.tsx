@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 
 interface Props {
@@ -12,12 +12,28 @@ const VOICE_LANGS = [
   { code: "el-GR", label: "EL" },
 ];
 
+// Greek + Coptic and Greek Extended blocks — used to detect the script the user is typing.
+const GREEK_CHARS = /[Ͱ-Ͽἀ-῿]/;
+const browserDefaultLang = () =>
+  typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("el")
+    ? "el-GR"
+    : "en-US";
+
 export default function Composer({ onSend, disabled }: Props) {
   const [text, setText] = useState("");
-  const [voiceLang, setVoiceLang] = useState("en-US");
+  const [voiceLang, setVoiceLang] = useState(browserDefaultLang);
+  // Browsers can't read the OS keyboard, so we follow the *typed* script instead — until the
+  // user manually clicks EN/EL, which pins their choice.
+  const [manualLang, setManualLang] = useState(false);
   const { supported: voiceSupported, listening, start, stop } = useSpeechRecognition();
   // Text captured before dictation started, so interim results append rather than overwrite.
   const baseRef = useRef("");
+
+  // Auto-follow the typed language (unless pinned, or while actively recording).
+  useEffect(() => {
+    if (manualLang || listening) return;
+    setVoiceLang(GREEK_CHARS.test(text) ? "el-GR" : "en-US");
+  }, [text, manualLang, listening]);
 
   const submit = () => {
     const trimmed = text.trim();
@@ -70,7 +86,10 @@ export default function Composer({ onSend, disabled }: Props) {
                   key={l.code}
                   type="button"
                   className={voiceLang === l.code ? "active" : ""}
-                  onClick={() => setVoiceLang(l.code)}
+                  onClick={() => {
+                    setManualLang(true);
+                    setVoiceLang(l.code);
+                  }}
                   disabled={listening}
                   title={`Recognize speech in ${l.label}`}
                 >
@@ -99,9 +118,7 @@ export default function Composer({ onSend, disabled }: Props) {
         </button>
       </div>
       <p className="composer-hint">
-        Enter to send · Shift+Enter for a new line
-        {voiceSupported ? " · 🎤 to speak (EN/EL)" : ""} · answers come from ingested manuals,
-        with citations
+        Enter to send · Shift+Enter for a new line{voiceSupported ? " · 🎤 to speak" : ""}
       </p>
     </div>
   );

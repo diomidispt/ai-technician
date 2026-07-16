@@ -696,3 +696,35 @@ body {
 .src-none {
   color: var(--text-muted);
 }
+
+/* --- Admin filter bar --- */
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.admin-filters input,
+.admin-filters select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.admin-filters input {
+  min-width: 200px;
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+.admin-filters .refresh-btn {
+  margin: 0;
+}
+.filter-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}

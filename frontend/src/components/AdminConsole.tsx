@@ -57,10 +57,22 @@ function UsersPanel() {
   const [expires, setExpires] = useState("");
   const { error, wrap } = useAsyncError();
 
+  // Filters
+  const [q, setQ] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const refresh = useCallback(() => wrap(async () => setUsers(await listUsers())), [wrap]);
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const shown = users.filter(
+    (u) =>
+      u.email.toLowerCase().includes(q.toLowerCase()) &&
+      (roleFilter === "all" || u.role === roleFilter) &&
+      (statusFilter === "all" || (statusFilter === "active" ? u.is_active : !u.is_active)),
+  );
 
   const onCreate = () =>
     wrap(async () => {
@@ -107,6 +119,23 @@ function UsersPanel() {
         </button>
       </div>
 
+      <div className="admin-filters">
+        <input placeholder="Search email…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+          <option value="all">All roles</option>
+          <option value="admin">admin</option>
+          <option value="technician">technician</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">All statuses</option>
+          <option value="active">active</option>
+          <option value="disabled">disabled</option>
+        </select>
+        <span className="filter-count">
+          {shown.length} / {users.length}
+        </span>
+      </div>
+
       <table className="admin-table">
         <thead>
           <tr>
@@ -118,7 +147,7 @@ function UsersPanel() {
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
+          {shown.map((u) => (
             <tr key={u.id} className={u.is_active ? "" : "disabled-row"}>
               <td>{u.email}</td>
               <td>{u.role}</td>
@@ -159,6 +188,7 @@ function UsersPanel() {
 function DocumentsPanel() {
   const [docs, setDocs] = useState<LibraryDoc[]>([]);
   const [status, setStatus] = useState("");
+  const [q, setQ] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const { error, wrap } = useAsyncError();
 
@@ -166,6 +196,8 @@ function DocumentsPanel() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const shown = docs.filter((d) => d.filename.toLowerCase().includes(q.toLowerCase()));
 
   const onUpload = () => {
     const file = fileRef.current?.files?.[0];
@@ -194,6 +226,13 @@ function DocumentsPanel() {
       </div>
       {status && <p className="admin-status">{status}</p>}
 
+      <div className="admin-filters">
+        <input placeholder="Search filename…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="filter-count">
+          {shown.length} / {docs.length}
+        </span>
+      </div>
+
       <table className="admin-table">
         <thead>
           <tr>
@@ -204,7 +243,7 @@ function DocumentsPanel() {
           </tr>
         </thead>
         <tbody>
-          {docs.map((d) => (
+          {shown.map((d) => (
             <tr key={d.id}>
               <td>{d.filename}</td>
               <td>{d.chunks}</td>
@@ -233,20 +272,58 @@ function DocumentsPanel() {
 // ---------------- Audit ----------------
 function AuditPanel() {
   const [rows, setRows] = useState<AuditEntry[]>([]);
+  const [q, setQ] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [userFilter, setUserFilter] = useState("all");
   const { error, wrap } = useAsyncError();
   const refresh = useCallback(() => wrap(async () => setRows(await listAudit())), [wrap]);
   useEffect(() => {
     refresh();
   }, [refresh]);
 
+  const users = Array.from(new Set(rows.map((r) => r.user_email))).sort();
+  const shown = rows.filter(
+    (r) =>
+      (r.question.toLowerCase().includes(q.toLowerCase()) ||
+        r.user_email.toLowerCase().includes(q.toLowerCase())) &&
+      (sourceFilter === "all" || r.source === sourceFilter) &&
+      (userFilter === "all" || r.user_email === userFilter),
+  );
+
   return (
     <div>
       <h3>Query audit log</h3>
       <p className="admin-note">Who asked what, and whether it was answered from the library or the web.</p>
       {error && <p className="login-error">{error}</p>}
-      <button className="refresh-btn" onClick={refresh}>
-        Refresh
-      </button>
+
+      <div className="admin-filters">
+        <input
+          placeholder="Search question or user…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+          <option value="all">All sources</option>
+          <option value="internal">internal</option>
+          <option value="web">web</option>
+          <option value="none">none</option>
+        </select>
+        <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
+          <option value="all">All users</option>
+          {users.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+        <button className="refresh-btn" onClick={refresh}>
+          Refresh
+        </button>
+        <span className="filter-count">
+          {shown.length} / {rows.length}
+        </span>
+      </div>
+
       <table className="admin-table">
         <thead>
           <tr>
@@ -257,7 +334,7 @@ function AuditPanel() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
+          {shown.map((r, i) => (
             <tr key={i}>
               <td className="mono">{r.created_at.slice(0, 19).replace("T", " ")}</td>
               <td>{r.user_email}</td>

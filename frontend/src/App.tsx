@@ -27,30 +27,31 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark">J</span>
           <div className="brand-text">
-            <strong>Jensen Technical Assistant</strong>
-            <span className="brand-sub">Field service · industrial laundry equipment</span>
+            <strong>Jensen AI Technical Assistant</strong>
+            <span className="brand-sub">Field Service Industrial Laundry Equipment</span>
           </div>
         </div>
 
-        <nav className="app-nav">
-          <button className={view === "chat" ? "active" : ""} onClick={() => setView("chat")}>
-            Chat
-          </button>
-          {user.role === "admin" && (
+        {/* Admins get Chat/Admin tabs; technicians land straight in the chat (no tabs). */}
+        {user.role === "admin" && (
+          <nav className="app-nav">
+            <button className={view === "chat" ? "active" : ""} onClick={() => setView("chat")}>
+              Chat
+            </button>
             <button className={view === "admin" ? "active" : ""} onClick={() => setView("admin")}>
               Admin
             </button>
-          )}
-        </nav>
+          </nav>
+        )}
 
         <div className="header-meta">
           {model && (
             <span className="model-pill" title="Local model answering (via Ollama)">
-              <span className="model-dot" /> {model}
+              <span className="model-dot" /> AI Model: {model}
             </span>
           )}
           <span className="user-chip">
-            {user.email} · <b>{user.role}</b>
+            Username: <b>{user.email}</b> · Role: <b>{user.role}</b>
           </span>
           <button className="logout-btn" onClick={logout}>
             Sign out
