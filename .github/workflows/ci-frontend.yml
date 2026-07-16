@@ -1,0 +1,25 @@
+# Placeholder — path-filtered frontend CI. Typechecks + builds now; deploy (S3 sync +
+# CloudFront invalidation, via OIDC) added when infra/frontend lands (CLAUDE.md §6).
+name: ci-frontend
+
+on:
+  push:
+    branches: [main]
+    paths: ["frontend/**", ".github/workflows/ci-frontend.yml"]
+  pull_request:
+    paths: ["frontend/**", ".github/workflows/ci-frontend.yml"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm run build
+  # deploy:  # added later — aws s3 sync dist/ → CloudFront invalidation
