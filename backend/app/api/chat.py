@@ -17,9 +17,16 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from app.config import settings
 from app.rag import pipeline
 
 router = APIRouter()
+
+
+@router.get("/meta")
+async def meta() -> dict:
+    """What the UI shows about the running system (e.g. which model answers)."""
+    return {"answer_model": settings.answer_model, "embed_model": settings.embed_model}
 
 
 class Message(BaseModel):

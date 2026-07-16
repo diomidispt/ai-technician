@@ -55,7 +55,10 @@ export async function streamChat(
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      // Normalise CRLF -> LF: sse-starlette emits `\r\n` line endings, so events are
+      // separated by `\r\n\r\n`. Without this, a `\n\n` split never matches and no
+      // token is ever surfaced (the UI would hang on the typing indicator).
+      buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
 
       // SSE events are separated by a blank line.
       let sep: number;
