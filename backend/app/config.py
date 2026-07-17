@@ -42,9 +42,10 @@ class Settings(BaseSettings):
     query_rewrite_enabled: bool = True
     history_max_turns: int = 6  # most recent messages passed to the model for coherence
     # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
-    # the library as not covering the question and refuse. Tuned for bge-m3 (in-scope best ~0.3,
-    # out-of-scope best ~0.7+).
-    sufficiency_max_distance: float = 0.6
+    # the library as not covering the question -> web fallback. Tuned for bge-m3 on the
+    # section-prefixed corpus (measured: in-scope best ~0.26-0.37, out-of-scope best ~0.57-0.63),
+    # so 0.50 separates them with margin. Verified via `make eval` (routing accuracy).
+    sufficiency_max_distance: float = 0.50
     # Citations/context: keep only chunks within this distance of the best match, so we don't
     # cite loosely-related pages. Absolute thresholds don't separate them (distances cluster);
     # a margin off the best match does.
