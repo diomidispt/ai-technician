@@ -14,16 +14,21 @@ PDF manuals first (**with citations**), and only falls back to a web search when
 doesn't cover it. Everything runs on your machine — no AWS, no API keys, no token cost:
 
 - **Auth (local, simulates Cognito)** — JWT login + roles (**admin** / **technician**), instant
-  disable (revocation) and access-expiry dates. Demo logins: `admin`/`admin`, `technician`/`technician`.
-- **Admin console** — manage users, **upload & ingest PDFs** from the browser, view a **query
-  audit log** (who asked what). Admins only.
+  disable (revocation), access-expiry dates, and **password change / admin forced-reset**.
+- **Admin console** — manage users (incl. **reset password**), **upload & ingest PDFs** from the
+  browser, view a **query audit log** (who asked what). Admins only.
 - **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding, **🎤 voice input**).
-- **Backend** — FastAPI: auth guard → retrieve (pgvector, HNSW) → sufficiency filter → ground →
-  stream with **precise** citations; **web-search fallback** (DuckDuckGo) when the library is
-  insufficient, clearly flagged as external.
+- **Backend** — FastAPI: auth guard → history-aware query rewrite → **hybrid retrieve** (pgvector
+  similarity **+** Postgres full-text, fused with **RRF**) → vector sufficiency gate → ground →
+  stream with **precise** citations (`manual · page · section`); **web-search fallback**
+  (DuckDuckGo) when the library is insufficient, clearly flagged as external.
+- **Ingestion** — pdfplumber: section-aware chunks + whole-table chunks + **Tesseract OCR
+  fallback** for scanned pages/drawings (optional; see prereq below).
 - **Model** — [Ollama](https://ollama.com): `aya-expanse:8b` (answers) + `bge-m3` (embeddings).
   **Multilingual** (Greek + English). Metal-accelerated, free, offline.
-- **Vector store** — Postgres + pgvector with an **HNSW** index (Docker). Same engine as RDS.
+- **Vector store** — Postgres + pgvector: **HNSW** vector index + **GIN** full-text index (Docker).
+  Same engine as RDS.
+- **Eval** — `make eval` scores retrieval + routing so RAG tweaks are measured, not guessed.
 
 ```
 frontend (:5173) ─login─▶ backend (:8000): /api/auth · /api/admin · /api/chat
@@ -42,6 +47,13 @@ brew install ollama
 ollama serve &                       # leave running
 ollama pull aya-expanse:8b
 ollama pull bge-m3
+```
+
+**Optional — OCR for scanned PDFs/drawings** (only needed if you upload *scanned* docs; the sample
+manual is digital text and needs none):
+
+```bash
+brew install tesseract tesseract-lang poppler
 ```
 
 ### 2. Start the stack
@@ -83,16 +95,21 @@ to keep it fully offline.
 
 ## What's still missing (next phases)
 
-Auth (Cognito) · conversation history + audit logs · web-search fallback · admin console ·
-AWS infra + deploy. See [`CLAUDE.md` §8](./CLAUDE.md) for the full build order. Swapping the
-local Ollama model for Claude/Bedrock is a config change behind `app/rag/ollama_client.py`.
+Real Cognito · RDS · S3 + Textract ingestion · Terraform infra + deploy · persisted
+conversation threads · Claude/Bedrock swap (a config change behind `app/rag/ollama_client.py`).
+See [`CLAUDE.md` §8](./CLAUDE.md) for the full build order.
 
 ## Common commands
 
 ```bash
 make demo                  # full local stack (docker compose)
 make ingest                # ingest PDFs from ingestion/sample_docs
+make eval                  # score retrieval + routing (stack must be up)
 make down                  # stop the stack
 pytest backend/tests       # backend unit tests (no DB/Ollama needed)
 ruff check backend && ruff format backend
 ```
+
+> **Upgrading an existing local DB?** These changes add columns (`Chunk.section/kind`,
+> `User.must_change_password`) and there's no local migration tool, so reset the volume and
+> re-ingest: `docker compose down -v && docker compose up`, then `make ingest`.
