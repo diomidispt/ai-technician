@@ -10,7 +10,14 @@ from app.config import settings
 from app.db.repository import RetrievedChunk, _rrf_fuse
 from app.main import app
 from app.rag.chunking import CHUNK_OVERLAP, CHUNK_SIZE, chunk_page
-from app.rag.pipeline import _build_context, _citations, _detect_language, _select_relevant
+from app.rag.pipeline import (
+    _build_context,
+    _citations,
+    _detect_language,
+    _recent_turns,
+    _select_relevant,
+    _split_history,
+)
 
 client = TestClient(app)
 
@@ -124,6 +131,30 @@ def test_rrf_fuse_respects_top_k():
     vector_hits = [_chunk(i, i, 0.1 * i) for i in range(1, 6)]
     fused = _rrf_fuse(vector_hits, [], rrf_k=60, top_k=2)
     assert len(fused) == 2
+
+
+def test_split_history_picks_last_user_message():
+    history = [
+        {"role": "user", "content": "What does E14 mean?"},
+        {"role": "assistant", "content": "It's a drum imbalance code."},
+        {"role": "user", "content": "and for the WE110?"},
+    ]
+    prior, question = _split_history(history)
+    assert question == "and for the WE110?"
+    assert prior == history[:2]  # everything before the last user turn
+
+
+def test_split_history_empty():
+    assert _split_history([]) == ([], "")
+
+
+def test_recent_turns_caps_and_cleans():
+    prior = [{"role": "user", "content": f"q{i}"} for i in range(20)]
+    prior.append({"role": "system", "content": "ignored"})  # non user/assistant dropped
+    turns = _recent_turns(prior)
+    assert len(turns) == settings.history_max_turns
+    assert all(t["role"] in ("user", "assistant") for t in turns)
+    assert turns[-1]["content"] == "q19"
 
 
 def test_build_context_numbers_passages():

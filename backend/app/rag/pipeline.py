@@ -99,6 +99,54 @@ def _select_relevant(
     return near[: settings.retrieval_top_k]
 
 
+REWRITE_PROMPT = (
+    "You rewrite a technician's latest message into a single standalone search query for a "
+    "manual database, using the conversation for context. Resolve pronouns and implicit "
+    "references (equipment models, error codes, parts). Keep the original language. "
+    "Output ONLY the rewritten query — no preamble, no quotes, no explanation."
+)
+
+
+def _split_history(history: list[dict]) -> tuple[list[dict], str]:
+    """Return (prior turns, current question). The question is the last user message."""
+    for i in range(len(history) - 1, -1, -1):
+        if history[i].get("role") == "user":
+            return history[:i], history[i].get("content", "")
+    return [], ""
+
+
+def _recent_turns(prior: list[dict]) -> list[dict]:
+    """The last `history_max_turns` prior messages, as clean {role, content} dicts."""
+    turns = [
+        {"role": m["role"], "content": m["content"]}
+        for m in prior
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    return turns[-settings.history_max_turns :]
+
+
+async def _rewrite_query(prior: list[dict], question: str) -> str:
+    """Rewrite a follow-up into a standalone retrieval query. Falls back to the raw question."""
+    turns = _recent_turns(prior)
+    if not turns or not settings.query_rewrite_enabled:
+        return question
+    convo = "\n".join(f"{m['role']}: {m['content']}" for m in turns)
+    messages = [
+        {"role": "system", "content": REWRITE_PROMPT},
+        {
+            "role": "user",
+            "content": f"Conversation so far:\n{convo}\n\nLatest message: {question}\n\n"
+            "Standalone search query:",
+        },
+    ]
+    try:
+        rewritten = (await ollama_client.chat(messages)).strip().strip('"')
+    except Exception:  # model/network hiccup — retrieval still works on the raw question.
+        return question
+    # Guard against an empty or runaway (chatty) rewrite.
+    return rewritten if rewritten and len(rewritten) <= 300 else question
+
+
 def _sse(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
@@ -112,18 +160,25 @@ def _record_audit(user_email: str, question: str, source: str) -> None:
         session.close()
 
 
-async def run(question: str, user_email: str) -> AsyncIterator[dict]:
-    """Yield SSE events (`token` deltas then a terminal `done` carrying source + citations)."""
+async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
+    """Yield SSE events (`token` deltas then a terminal `done` carrying source + citations).
+
+    `history` is the full conversation ({role, content}); the last user message is the question.
+    Prior turns give the model context and drive a history-aware retrieval-query rewrite.
+    """
+    prior, question = _split_history(history)
     language = _detect_language(question)
 
-    # 1. Internal library first. Vector (meaning) + keyword (exact tokens) retrieval; the
-    #    sufficiency gate stays vector-based, RRF just re-orders the passing chunks.
-    query_embedding = await ollama_client.embed(question)
+    # 1. Internal library first. A follow-up is rewritten to a standalone query so retrieval isn't
+    #    blind to context. Vector (meaning) + keyword (exact tokens); the sufficiency gate stays
+    #    vector-based, RRF just re-orders the passing chunks.
+    search_query = await _rewrite_query(prior, question)
+    query_embedding = await ollama_client.embed(search_query)
     session = SessionLocal()
     try:
         if settings.hybrid_enabled:
             vector_hits = vector_search(session, query_embedding, settings.retrieval_candidate_k)
-            keyword_hits = keyword_search(session, question, settings.retrieval_candidate_k)
+            keyword_hits = keyword_search(session, search_query, settings.retrieval_candidate_k)
         else:
             vector_hits = vector_search(session, query_embedding, settings.retrieval_top_k)
             keyword_hits = []
@@ -135,6 +190,7 @@ async def run(question: str, user_email: str) -> AsyncIterator[dict]:
         context = _build_context(relevant)
         messages = [
             {"role": "system", "content": INTERNAL_PROMPT},
+            *_recent_turns(prior),
             {
                 "role": "user",
                 "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}\n\n"
@@ -147,9 +203,10 @@ async def run(question: str, user_email: str) -> AsyncIterator[dict]:
         yield _sse("done", {"source": "internal", "citations": _citations(relevant)})
         return
 
-    # 2. Web-search fallback (only because the library was insufficient).
+    # 2. Web-search fallback (only because the library was insufficient). Search the standalone
+    #    (history-aware) query so follow-ups aren't sent to the web without context.
     if settings.web_fallback_enabled:
-        results = await websearch.search(question)
+        results = await websearch.search(search_query)
         if results:
             numbered = "\n\n".join(
                 f"[{i}] {r.title}\n{r.snippet}\n({r.url})" for i, r in enumerate(results, start=1)

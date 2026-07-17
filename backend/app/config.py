@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     hybrid_enabled: bool = True
     retrieval_candidate_k: int = 20  # candidates pulled from EACH retriever before fusion
     rrf_k: int = 60  # RRF constant; larger = flatter weighting of rank positions
+
+    # --- Conversation memory (history-aware retrieval) ---
+    # Rewrite a follow-up ("and for the WE110?") into a standalone search query using recent turns,
+    # so retrieval isn't blind to context. One fast LLM call; falls back to the raw question.
+    query_rewrite_enabled: bool = True
+    history_max_turns: int = 6  # most recent messages passed to the model for coherence
     # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
     # the library as not covering the question and refuse. Tuned for bge-m3 (in-scope best ~0.3,
     # out-of-scope best ~0.7+).
