@@ -76,7 +76,11 @@ export default function App() {
         </div>
       </header>
 
-      {showAdmin ? <AdminConsole /> : <Chat />}
+      {showAdmin ? (
+        <AdminConsole />
+      ) : (
+        <Chat onSignOut={logout} onChangePassword={() => setShowChangePw(true)} />
+      )}
       {showChangePw && <ChangePassword onClose={() => setShowChangePw(false)} />}
     </div>
   );

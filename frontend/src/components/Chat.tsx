@@ -20,11 +20,17 @@ export interface UiMessage extends ChatMessage {
 let idCounter = 0;
 const nextId = () => `m${++idCounter}`;
 
-export default function Chat() {
+interface ChatProps {
+  onSignOut: () => void;
+  onChangePassword: () => void;
+}
+
+export default function Chat({ onSignOut, onChangePassword }: ChatProps) {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const abortRef = useRef<AbortController | null>(null);
 
   const refreshList = useCallback(() => {
@@ -41,11 +47,13 @@ export default function Chat() {
     if (busy) return;
     setConversationId(null);
     setMessages([]);
+    setSidebarOpen(false);
   }, [busy]);
 
   const selectConversation = useCallback(
     async (id: number) => {
       if (busy || id === conversationId) return;
+      setSidebarOpen(false);
       try {
         const conv = await getConversation(id);
         setConversationId(conv.id);
@@ -140,8 +148,25 @@ export default function Chat() {
         onSelect={selectConversation}
         onNew={newChat}
         onDelete={removeConversation}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onSignOut={onSignOut}
+        onChangePassword={() => {
+          setSidebarOpen(false);
+          onChangePassword();
+        }}
       />
       <main className="chat">
+        <div className="chat-mobilebar">
+          <button
+            className="sidebar-toggle"
+            aria-label="Show conversations"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
+          <span className="chat-mobilebar-title">Chats</span>
+        </div>
         <MessageList messages={messages} />
         <Composer onSend={send} disabled={busy} />
       </main>

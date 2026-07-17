@@ -10,6 +10,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Allow the Vite dev server to be reached through a public tunnel (Cloudflare/ngrok) for
+    // demos — Vite otherwise blocks requests with an unknown Host header.
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: apiTarget,

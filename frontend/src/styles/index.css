@@ -219,11 +219,51 @@ body {
 .conv-del:hover {
   color: #e5484d;
 }
-@media (max-width: 720px) {
-  .conv-sidebar {
-    width: 168px;
-    padding: 8px;
-  }
+/* Mobile-only affordances — hidden on desktop, revealed in the mobile media query below. */
+.conv-backdrop {
+  display: none;
+}
+.chat-mobilebar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.sidebar-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chat-mobilebar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+/* Account actions in the drawer footer — desktop keeps them in the header. */
+.conv-account {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 6px;
+  gap: 6px;
+  flex-direction: column;
+}
+.conv-account button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 
 .chat {
@@ -848,4 +888,83 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   margin-left: auto;
+}
+
+/* ============================================================================
+   Mobile (phones / narrow screens). Placed last so it overrides the base rules.
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Header: keep it to the essentials so it doesn't overflow a phone. */
+  .app-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+  .brand-text strong {
+    font-size: 15px;
+  }
+  .brand-sub {
+    display: none; /* secondary info — free up width on a phone */
+  }
+  /* Account actions (change password / sign out) move into the drawer footer on mobile, so the
+     header stays clean and nothing forces a horizontal scroll. */
+  .header-meta {
+    display: none;
+  }
+  .conv-account {
+    display: flex;
+  }
+
+  /* Conversation sidebar becomes an off-canvas drawer, toggled by the ☰ bar. */
+  .chat-mobilebar {
+    display: flex;
+  }
+  .conv-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    width: 80%;
+    max-width: 300px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25);
+  }
+  .conv-sidebar.open {
+    transform: translateX(0);
+  }
+  .conv-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  /* Roomier tap targets + less padding for small screens. */
+  .message-list {
+    padding: 16px 12px 8px;
+  }
+  .composer-inner {
+    padding: 8px;
+  }
+
+  /* Admin tables scroll horizontally instead of overflowing the page. */
+  .admin {
+    padding: 12px;
+  }
+  .admin-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .admin-filters {
+    flex-wrap: wrap;
+  }
 }

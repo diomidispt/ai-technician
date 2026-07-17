@@ -60,10 +60,12 @@ class Settings(BaseSettings):
     # Keep only the N most-recently-used threads per user; starting an N+1th prunes the oldest.
     history_max_conversations: int = 30
     # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
-    # the library as not covering the question -> web fallback. Tuned for bge-m3 on the
-    # section-prefixed corpus (measured: in-scope best ~0.26-0.37, out-of-scope best ~0.57-0.63),
-    # so 0.50 separates them with margin. Verified via `make eval` (routing accuracy).
-    sufficiency_max_distance: float = 0.50
+    # the library as not covering the question -> web fallback / refuse. Measured on this corpus:
+    # real in-scope questions top out ~0.44 (Greek pushes highest), while "related-but-unanswerable"
+    # traps like a nonexistent error code "E4" start ~0.47. So 0.45 sits in that narrow gap — it
+    # stops the model being handed loosely-related chunks and fabricating an answer with citations.
+    # The gap is tight (an 8B-model limitation); reliable grounding is the main win from Claude.
+    sufficiency_max_distance: float = 0.45
     # Citations/context: keep only chunks within this distance of the best match, so we don't
     # cite loosely-related pages. Absolute thresholds don't separate them (distances cluster);
     # a margin off the best match does.
