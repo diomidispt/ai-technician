@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     # query out, so it's not fully offline. Set WEB_FALLBACK_ENABLED=false to keep it offline.
     web_fallback_enabled: bool = True
     web_results: int = 5
+    # Prepended to web-fallback queries so results stay on-domain (a bare "E4" would otherwise pull
+    # unrelated "HP printer E4" hits). Set empty to search the raw question.
+    web_search_scope: str = "Jensen industrial laundry equipment"
 
     @property
     def cors_origins_list(self) -> list[str]:

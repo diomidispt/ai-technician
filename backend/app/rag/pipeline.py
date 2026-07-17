@@ -50,6 +50,9 @@ Rules you MUST follow:
 - Begin with one short sentence stating this answer is from a web search, not the internal \
 Jensen manuals, and should be verified.
 - Answer using ONLY the numbered web RESULTS provided. Cite them inline like [1], [2].
+- If the results are NOT clearly about Jensen or industrial laundry equipment (e.g. they are about \
+unrelated appliances or brands like printers or dishwashers), do NOT use them: say you couldn't \
+find relevant information on the web and recommend escalating to Jensen engineering.
 - Safety first for any electrical/steam/high-temp/moving-part step.
 - Be concise."""
 
@@ -278,9 +281,11 @@ async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
         return
 
     # 2. Web-search fallback (only because the library was insufficient). Search the standalone
-    #    (history-aware) query so follow-ups aren't sent to the web without context.
+    #    (history-aware) query, scoped to the equipment domain so results stay on-topic instead of
+    #    pulling unrelated hits (e.g. a bare "E4" -> HP-printer results).
     if settings.web_fallback_enabled:
-        results = await websearch.search(search_query)
+        scoped_query = f"{settings.web_search_scope} {search_query}".strip()
+        results = await websearch.search(scoped_query)
         if results:
             numbered = "\n\n".join(
                 f"[{i}] {r.title}\n{r.snippet}\n({r.url})" for i, r in enumerate(results, start=1)
