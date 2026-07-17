@@ -1,9 +1,13 @@
-"""Split document text into embed-sized chunks, preserving page numbers for citations.
+"""Split document text into embed-sized chunks, preserving page + section for citations.
 
 Strategy: respect natural boundaries. Split a page into paragraphs, then pack whole paragraphs
 (or sentences, for long ones) into chunks up to a target size, carrying a short overlap so an
 answer that straddles a boundary is still retrievable. This beats blind fixed-width cuts, which
 slice mid-sentence and hurt both retrieval and citation quality.
+
+We also track the nearest **section heading** while walking the text and attach it to each chunk
+(and prefix the chunk content with it), so retrieval has structural context and citations can say
+"page 109, section 5.2 Drum motor" instead of just a page number.
 """
 
 import re
@@ -15,11 +19,28 @@ CHUNK_OVERLAP = 150  # characters of continuity carried between adjacent chunks
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 _PARAGRAPH_SPLIT = re.compile(r"\n+")
 
+# A numbered heading like "5", "5.2", "5.2.1" followed by a short title.
+_NUMBERED_HEADING = re.compile(r"^\d+(?:\.\d+)*\.?\s+\S.{0,80}$")
+
 
 @dataclass
 class TextChunk:
     page: int
     content: str
+    section: str | None = None
+    kind: str = "text"
+
+
+def _is_heading(line: str) -> bool:
+    """Heuristic: a numbered heading, or a short ALL-CAPS line (a section title)."""
+    line = line.strip()
+    if not line or len(line) > 90:
+        return False
+    if _NUMBERED_HEADING.match(line):
+        return True
+    letters = [c for c in line if c.isalpha()]
+    # Short, mostly-uppercase, multi-char line -> a title like "SAFETY INSTRUCTIONS".
+    return len(letters) >= 3 and line.upper() == line and any(c.isalpha() for c in line)
 
 
 def _hard_split(text: str) -> list[str]:
@@ -64,10 +85,41 @@ def _pack(units: list[str]) -> list[str]:
     return chunks
 
 
-def chunk_page(page: int, text: str) -> list[TextChunk]:
-    """Chunk a single page's text on paragraph/sentence boundaries."""
+def chunk_page(page: int, text: str, start_section: str | None = None) -> list[TextChunk]:
+    """Chunk a page's text on paragraph/sentence boundaries, tracking the section heading.
+
+    `start_section` carries the heading in effect at the top of the page (headings span pages).
+    Returns chunks tagged with the nearest preceding heading.
+    """
     paragraphs = [p.strip() for p in _PARAGRAPH_SPLIT.split(text) if p.strip()]
-    units: list[str] = []
+    section = start_section
+    # Group runs of body paragraphs under the heading that precedes them, so each chunk gets
+    # the right section even when a heading appears mid-page.
+    segments: list[tuple[str | None, list[str]]] = []
     for paragraph in paragraphs:
-        units.extend(_atomize(" ".join(paragraph.split())))
-    return [TextChunk(page=page, content=c) for c in _pack(units)]
+        if _is_heading(paragraph):
+            section = " ".join(paragraph.split())
+            continue
+        if segments and segments[-1][0] == section:
+            segments[-1][1].append(paragraph)
+        else:
+            segments.append((section, [paragraph]))
+
+    chunks: list[TextChunk] = []
+    for seg_section, seg_paragraphs in segments:
+        units: list[str] = []
+        for paragraph in seg_paragraphs:
+            units.extend(_atomize(" ".join(paragraph.split())))
+        for content in _pack(units):
+            prefixed = f"[Section: {seg_section}]\n{content}" if seg_section else content
+            chunks.append(TextChunk(page=page, content=prefixed, section=seg_section, kind="text"))
+    return chunks
+
+
+def last_heading(text: str) -> str | None:
+    """The last heading seen on a page — carried into the next page's chunking."""
+    section: str | None = None
+    for line in _PARAGRAPH_SPLIT.split(text):
+        if _is_heading(line):
+            section = " ".join(line.split())
+    return section

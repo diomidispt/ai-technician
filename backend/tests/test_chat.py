@@ -49,6 +49,26 @@ def test_chunk_page_empty():
     assert chunk_page(1, "   ") == []
 
 
+def test_chunk_page_tracks_section_heading():
+    text = "5.2 Drum motor\nCheck the drum motor wiring before replacing the belt."
+    chunks = chunk_page(page=109, text=text)
+    assert len(chunks) == 1
+    assert chunks[0].section == "5.2 Drum motor"
+    assert chunks[0].content.startswith("[Section: 5.2 Drum motor]")
+    assert "drum motor wiring" in chunks[0].content
+
+
+def test_chunk_page_heading_carries_across_pages():
+    # A heading on page 1 stays in effect for page 2's body (headings span pages).
+    from app.rag.chunking import last_heading
+
+    page1 = "SAFETY INSTRUCTIONS\nAlways isolate power before service."
+    carried = last_heading(page1)
+    assert carried == "SAFETY INSTRUCTIONS"
+    page2 = chunk_page(page=2, text="Wait for steam pressure to drop.", start_section=carried)
+    assert page2[0].section == "SAFETY INSTRUCTIONS"
+
+
 def test_citations_dedup_by_source_and_page():
     hits = [
         _chunk(1, 5, 0.1),

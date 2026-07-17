@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     # (a mounted volume); locally it's the sample_docs folder.
     docs_dir: str = "/docs"
 
+    # OCR fallback (local stand-in for AWS Textract): when a page has little/no extractable text
+    # (a scan or a drawing), render it and run Tesseract so its labels/notes become searchable.
+    # Needs the system `tesseract` binary (+ language packs); degrades gracefully if absent.
+    ocr_enabled: bool = True
+    ocr_min_text_chars: int = 20  # below this, treat the page as scanned and try OCR
+    ocr_langs: str = "ell+eng"  # Tesseract language packs (Greek + English)
+
     # --- Web-search fallback (DuckDuckGo, no API key) ---
     # Runs ONLY when the internal library is insufficient (internal-first rule). Sends the
     # query out, so it's not fully offline. Set WEB_FALLBACK_ENABLED=false to keep it offline.
