@@ -528,17 +528,6 @@ body {
   font-size: 13px;
   margin: 0;
 }
-.login-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-}
-.login-hint code {
-  background: var(--bg-subtle);
-  padding: 1px 5px;
-  border-radius: 5px;
-}
 .link-btn {
   margin-top: 2px;
   border: none;
