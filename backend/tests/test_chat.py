@@ -14,6 +14,7 @@ from app.rag.pipeline import (
     _build_context,
     _citations,
     _detect_language,
+    _parse_intent,
     _recent_turns,
     _select_relevant,
     _split_history,
@@ -131,6 +132,17 @@ def test_rrf_fuse_respects_top_k():
     vector_hits = [_chunk(i, i, 0.1 * i) for i in range(1, 6)]
     fused = _rrf_fuse(vector_hits, [], rrf_k=60, top_k=2)
     assert len(fused) == 2
+
+
+def test_parse_intent():
+    assert _parse_intent("CHITCHAT") == "chitchat"
+    assert _parse_intent("chitchat.") == "chitchat"
+    assert _parse_intent("The answer is CHITCHAT") == "chitchat"
+    assert _parse_intent("TECHNICAL") == "technical"
+    assert _parse_intent("technical — needs the manual") == "technical"
+    # Unknown / empty -> fail open to technical (never drop a real question).
+    assert _parse_intent("") == "technical"
+    assert _parse_intent("banana") == "technical"
 
 
 def test_make_title():

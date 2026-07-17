@@ -13,12 +13,14 @@ Prints a per-item table + aggregates and exits non-zero below the pass threshold
 Needs the live DB + Ollama, so it is intentionally NOT part of the unit test suite.
 """
 
+import asyncio
+
 from app.config import settings
 from app.db.repository import RetrievedChunk, _rrf_fuse, keyword_search, vector_search
 from app.db.session import SessionLocal, init_db
 from app.eval.eval_set import EVAL_SET, EvalItem
 from app.rag import ollama_client
-from app.rag.pipeline import _select_relevant
+from app.rag.pipeline import _classify_intent, _select_relevant
 
 # Pass thresholds (overall).
 MIN_INTERNAL_KEYWORD_HIT = 0.60
@@ -36,6 +38,19 @@ def _first_match_rank(chunks: list[RetrievedChunk], keywords: list[str]) -> int 
 
 
 def _evaluate(item: EvalItem) -> dict:
+    # Intent routing first: chit-chat items must route to chit-chat; everything else must be
+    # classified technical (and not diverted away from the manuals).
+    intent = asyncio.run(_classify_intent([], item.question))
+    if item.source == "chat":
+        return {
+            "keyword_hit": None,
+            "mrr": 0.0,
+            "page_hit": None,
+            "routing_ok": intent == "chitchat",
+            "predicted": intent,
+            "top_pages": [],
+        }
+
     query_embedding = ollama_client.embed_sync(item.question)
     session = SessionLocal()
     try:
@@ -55,8 +70,10 @@ def _evaluate(item: EvalItem) -> dict:
         "keyword_hit": rank is not None,
         "mrr": (1.0 / rank) if rank else 0.0,
         "page_hit": (any(p in top_pages for p in item.pages) if item.pages else None),
-        "routing_ok": predicted == expected_routing,
-        "predicted": predicted,
+        # A technical/web item is routed right only if it's classified technical AND the
+        # retrieval gate sends it to the expected place.
+        "routing_ok": intent == "technical" and predicted == expected_routing,
+        "predicted": predicted if intent == "technical" else "chitchat",
         "top_pages": top_pages,
     }
 
@@ -80,7 +97,7 @@ def main() -> int:
         if item.source == "internal":
             internal_n += 1
             internal_kw_hits += int(r["keyword_hit"])
-        kw = "✓" if r["keyword_hit"] else "·"
+        kw = "—" if r["keyword_hit"] is None else ("✓" if r["keyword_hit"] else "·")
         route = "✓" if r["routing_ok"] else "✗"
         pages = ",".join(str(p) for p in r["top_pages"][:5])
         print(

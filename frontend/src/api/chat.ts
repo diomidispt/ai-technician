@@ -7,7 +7,7 @@
 import { getToken } from "./client";
 
 export type ChatRole = "user" | "assistant";
-export type AnswerSource = "internal" | "web" | "none";
+export type AnswerSource = "internal" | "web" | "none" | "chat";
 
 export interface ChatMessage {
   role: ChatRole;

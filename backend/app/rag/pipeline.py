@@ -106,6 +106,31 @@ REWRITE_PROMPT = (
     "Output ONLY the rewritten query — no preamble, no quotes, no explanation."
 )
 
+# The router decides, per message, whether to search the manuals or just chat back. This is the
+# "does this even need the PDFs?" step — without it, greetings get answered from random chunks.
+ROUTER_PROMPT = (
+    "You route messages for a support assistant for Jensen industrial laundry equipment.\n"
+    "Classify the user's LATEST message as exactly one word:\n"
+    "- TECHNICAL: a troubleshooting, repair, maintenance, product, error-code, part, or how-to "
+    "question about the equipment — including short follow-ups that refer to a model, part, or the "
+    "prior technical topic (e.g. 'and the WE110?').\n"
+    "- CHITCHAT: greetings, thanks, small talk, or questions about you/the assistant "
+    "(e.g. 'hello', 'thanks', 'who are you?').\n"
+    "Reply with ONLY the single word TECHNICAL or CHITCHAT."
+)
+
+CHITCHAT_PROMPT = """You are the Jensen technical support assistant for field technicians \
+servicing industrial laundry equipment. The user's message is small talk or is not about the \
+equipment.
+
+- {language_rule}
+- If they greet or thank you, reply warmly in one short sentence.
+- If they ask about anything UNRELATED to industrial laundry equipment (general knowledge, trivia,
+  other topics), politely say it's outside what you can help with — do NOT answer the question.
+- Always invite them to ask a troubleshooting question about the equipment.
+- Keep it to one or two short sentences. Do NOT invent technical details, part numbers, or steps,
+  and do NOT cite any manual."""
+
 
 def _split_history(history: list[dict]) -> tuple[list[dict], str]:
     """Return (prior turns, current question). The question is the last user message."""
@@ -149,6 +174,37 @@ async def _rewrite_query(prior: list[dict], question: str) -> str:
     return rewritten if rewritten and len(rewritten) <= 300 else question
 
 
+def _parse_intent(text: str) -> str:
+    """Map a router reply to 'chitchat' or 'technical'. Unknown -> 'technical' (fail-open)."""
+    upper = (text or "").upper()
+    if "CHITCHAT" in upper:
+        return "chitchat"
+    return "technical"  # default to searching, so a real question is never dropped
+
+
+async def _classify_intent(prior: list[dict], question: str) -> str:
+    """Decide whether the message needs the manuals ('technical') or is small talk ('chitchat').
+
+    A cheap one-word LLM call on the (multilingual) answer model. Recent turns disambiguate short
+    follow-ups. Fails open to 'technical' so a real question is never sent to chit-chat by mistake.
+    """
+    if not settings.intent_router_enabled:
+        return "technical"
+    turns = _recent_turns(prior)[-2:]
+    convo = "".join(f"{m['role']}: {m['content']}\n" for m in turns)
+    user = (f"Recent conversation:\n{convo}\n" if convo else "") + (
+        f"Latest message: {question}\n\nOne word (TECHNICAL or CHITCHAT):"
+    )
+    messages = [
+        {"role": "system", "content": ROUTER_PROMPT},
+        {"role": "user", "content": user},
+    ]
+    try:
+        return _parse_intent(await ollama_client.chat(messages))
+    except Exception:  # router hiccup — default to searching the manuals.
+        return "technical"
+
+
 def _sse(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
@@ -170,6 +226,22 @@ async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
     """
     prior, question = _split_history(history)
     language = _detect_language(question)
+
+    # 0. Intent router: does this message even need the manuals? Greetings / small talk get a
+    #    natural reply with NO retrieval and NO history rewrite — so "hello" never gets answered
+    #    from a random PDF chunk. Technical questions fall through to the retrieval flow below.
+    if await _classify_intent(prior, question) == "chitchat":
+        rule = "Reply in Greek." if language == "Greek" else "Reply in English."
+        messages = [
+            {"role": "system", "content": CHITCHAT_PROMPT.format(language_rule=rule)},
+            *_recent_turns(prior),
+            {"role": "user", "content": question},
+        ]
+        async for delta in ollama_client.chat_stream(messages):
+            yield _sse("token", {"delta": delta})
+        _record_audit(user_email, question, "chat")
+        yield _sse("done", {"source": "chat", "citations": []})
+        return
 
     # 1. Internal library first. A follow-up is rewritten to a standalone query so retrieval isn't
     #    blind to context. Vector (meaning) + keyword (exact tokens); the sufficiency gate stays

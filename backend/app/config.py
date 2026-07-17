@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     query_rewrite_enabled: bool = True
     history_max_turns: int = 6  # most recent messages passed to the model for coherence
 
+    # Intent router: a one-word LLM call up front decides whether a message needs the manuals
+    # (technical) or is small talk (greeting/thanks/"who are you"). Chit-chat gets a natural reply
+    # with no retrieval — so greetings aren't answered from random chunks. Uses the answer model.
+    intent_router_enabled: bool = True
+
     # --- Conversation history (persisted per-user threads behind the sidebar) ---
     # Keep only the N most-recently-used threads per user; starting an N+1th prunes the oldest.
     history_max_conversations: int = 30

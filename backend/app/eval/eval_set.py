@@ -83,8 +83,12 @@ EVAL_SET: list[EvalItem] = [
         keywords=["drum", "bearing", "belt", "motor"],
         lang="el",
     ),
-    # --- Out of scope: the library shouldn't cover these -> web fallback / not internal ---
-    EvalItem("Who won the FIFA World Cup in 2018?", source="web", keywords=["france"]),
-    EvalItem("What's the capital of Australia?", source="web", keywords=["canberra"]),
-    EvalItem("How do I bake a chocolate cake?", source="web", keywords=["flour", "sugar", "oven"]),
+    # --- Chit-chat / off-topic: greetings, small talk, and non-equipment questions are handled
+    #     conversationally (greeted or politely deflected) — NOT searched in the manuals. ---
+    EvalItem("hello", source="chat"),
+    EvalItem("thanks!", source="chat"),
+    EvalItem("who are you?", source="chat"),
+    EvalItem("γεια σου", source="chat", lang="el"),
+    EvalItem("Who won the FIFA World Cup in 2018?", source="chat"),
+    EvalItem("How do I bake a chocolate cake?", source="chat"),
 ]
