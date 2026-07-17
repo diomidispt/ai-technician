@@ -29,6 +29,12 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retrieval_top_k: int = 5
+    # Hybrid retrieval: vector search (meaning) fused with Postgres full-text (exact tokens like
+    # error codes / part numbers / model names) via Reciprocal Rank Fusion. Set HYBRID_ENABLED=false
+    # to fall back to vector-only.
+    hybrid_enabled: bool = True
+    retrieval_candidate_k: int = 20  # candidates pulled from EACH retriever before fusion
+    rrf_k: int = 60  # RRF constant; larger = flatter weighting of rank positions
     # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
     # the library as not covering the question and refuse. Tuned for bge-m3 (in-scope best ~0.3,
     # out-of-scope best ~0.7+).

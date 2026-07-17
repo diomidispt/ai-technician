@@ -132,9 +132,7 @@ def list_documents(session: Session = Depends(get_session)) -> list[DocumentRow]
 
 
 @router.post("/documents", response_model=DocumentRow, status_code=status.HTTP_201_CREATED)
-async def upload_document(
-    file: UploadFile, session: Session = Depends(get_session)
-) -> DocumentRow:
+async def upload_document(file: UploadFile, session: Session = Depends(get_session)) -> DocumentRow:
     """Upload a PDF and ingest it (parse -> chunk -> embed). The library's local upload path."""
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are supported")

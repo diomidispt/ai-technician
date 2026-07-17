@@ -41,9 +41,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def chat(
-    request: ChatRequest, user: User = Depends(get_current_user)
-) -> EventSourceResponse:
+async def chat(request: ChatRequest, user: User = Depends(get_current_user)) -> EventSourceResponse:
     question = next(
         (m.content for m in reversed(request.messages) if m.role == "user"),
         "",

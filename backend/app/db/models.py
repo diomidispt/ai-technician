@@ -7,7 +7,7 @@ One database holds documents + their chunked, embedded text, plus users and an a
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -79,6 +79,10 @@ class Chunk(Base):
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
     page: Mapped[int] = mapped_column(Integer, default=0)  # 1-based page number for citations
+    # Nearest enclosing section heading (e.g. "5.2 Drum motor"), for context + richer citations.
+    section: Mapped[str | None] = mapped_column(String(300), default=None)
+    # How this chunk was produced: "text" (prose), "table" (kept-whole table), "ocr" (scanned page).
+    kind: Mapped[str] = mapped_column(String(10), default="text")
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(settings.embed_dim))
 
@@ -92,4 +96,13 @@ Index(
     Chunk.embedding,
     postgresql_using="hnsw",
     postgresql_ops={"embedding": "vector_cosine_ops"},
+)
+
+# Full-text index for the keyword half of hybrid search. `simple` config = no language-specific
+# stemming, so it keeps error codes ("E14"), part numbers, and Greek words intact (Postgres has no
+# Greek stemmer). Fused with the vector search via RRF (see repository.hybrid_search).
+Index(
+    "ix_chunks_content_fts",
+    func.to_tsvector("simple", Chunk.content),
+    postgresql_using="gin",
 )
