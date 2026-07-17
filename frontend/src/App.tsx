@@ -18,8 +18,17 @@ export default function App() {
       .catch(() => setModel(""));
   }, []);
 
+  // Every login (or user switch) lands on the chat — so a technician after an admin session
+  // never sees a stale admin view.
+  useEffect(() => {
+    setView("chat");
+  }, [user?.email]);
+
   if (loading) return <div className="app-loading">Loading…</div>;
   if (!user) return <Login />;
+
+  // Belt-and-suspenders: only admins can ever see the admin view.
+  const showAdmin = user.role === "admin" && view === "admin";
 
   return (
     <div className="app">
@@ -59,7 +68,7 @@ export default function App() {
         </div>
       </header>
 
-      {view === "chat" ? <Chat /> : <AdminConsole />}
+      {showAdmin ? <AdminConsole /> : <Chat />}
     </div>
   );
 }
