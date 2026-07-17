@@ -810,6 +810,10 @@ body {
   color: #b45309;
   border-color: #b4530955;
 }
+.src-chat {
+  color: #6b7bd6;
+  border-color: #6b7bd655;
+}
 .src-none {
   color: var(--text-muted);
 }

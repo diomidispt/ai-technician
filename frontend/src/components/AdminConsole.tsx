@@ -323,6 +323,7 @@ function AuditPanel() {
           <option value="all">All sources</option>
           <option value="internal">internal</option>
           <option value="web">web</option>
+          <option value="chat">chat</option>
           <option value="none">none</option>
         </select>
         <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
