@@ -61,6 +61,26 @@ async def chat(messages: list[dict], model: str | None = None) -> str:
         return resp.json().get("message", {}).get("content", "")
 
 
+async def vision_extract(prompt: str, image_b64: str) -> str:
+    """Send a base64 image + prompt to the local vision model; return its text reply.
+
+    Used to read the text / error codes off a photographed equipment display. Ollama's chat API
+    takes images as base64 strings on the message.
+    """
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        resp = await client.post(
+            f"{settings.ollama_base_url}/api/chat",
+            json={
+                "model": settings.vision_model,
+                "messages": [{"role": "user", "content": prompt, "images": [image_b64]}],
+                "stream": False,
+                "keep_alive": settings.ollama_keep_alive,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json().get("message", {}).get("content", "")
+
+
 async def chat_stream(messages: list[dict]) -> AsyncIterator[str]:
     """Stream assistant token deltas from Ollama's /api/chat (NDJSON)."""
     async with httpx.AsyncClient(timeout=None) as client:

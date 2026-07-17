@@ -14,6 +14,7 @@ from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.conversations import router as conversations_router
+from app.api.vision import router as vision_router
 from app.config import settings
 from app.db.session import init_db, seed_users
 
@@ -38,6 +39,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(chat_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api", tags=["conversations"])
+app.include_router(vision_router, prefix="/api", tags=["vision"])
 
 
 @app.get("/healthz")

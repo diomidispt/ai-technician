@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # Keep models resident between requests so there's no multi-second reload lag on the next
     # question. Sent on every Ollama call. "30m" = stay loaded 30 min after last use.
     ollama_keep_alive: str = "30m"
+    # --- Vision (photo input, $0/local) ---
+    # A technician photographs the control panel / error display; this model reads the code + text
+    # off it, which then flows into the normal manual RAG. Needs `ollama pull <vision_model>`.
+    # minicpm-v: strong OCR, fits by aya on 16GB. Alts: moondream (lighter), llama3.2-vision.
+    vision_enabled: bool = True
+    vision_model: str = "minicpm-v"
     # Cap the answer length so generation doesn't run on unnecessarily (speed). Plenty for a
     # thorough grounded answer; -1 would be unlimited.
     answer_num_predict: int = 800

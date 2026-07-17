@@ -36,6 +36,7 @@ async def meta() -> dict:
         "answer_model": settings.answer_model,
         "embed_model": settings.embed_model,
         "web_fallback": settings.web_fallback_enabled,
+        "vision_enabled": settings.vision_enabled,
     }
 
 

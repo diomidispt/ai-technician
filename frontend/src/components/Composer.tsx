@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { extractImageText } from "../api/vision";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 
 interface Props {
@@ -29,11 +30,44 @@ export default function Composer({ onSend, disabled }: Props) {
   // Text captured before dictation started, so interim results append rather than overwrite.
   const baseRef = useRef("");
 
+  // Camera / photo input (reads an equipment display via the local vision model).
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [visionEnabled, setVisionEnabled] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [imageError, setImageError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/meta")
+      .then((r) => r.json())
+      .then((d) => setVisionEnabled(Boolean(d.vision_enabled)))
+      .catch(() => setVisionEnabled(false));
+  }, []);
+
   // Auto-follow the typed language (unless pinned, or while actively recording).
   useEffect(() => {
     if (manualLang || listening) return;
     setVoiceLang(GREEK_CHARS.test(text) ? "el-GR" : "en-US");
   }, [text, manualLang, listening]);
+
+  const onPickImage = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be picked again
+    if (!file) return;
+    setImageError("");
+    setReading(true);
+    try {
+      const extracted = await extractImageText(file);
+      if (extracted) {
+        setText((prev) => (prev ? prev.trimEnd() + " " : "") + extracted);
+      } else {
+        setImageError("No readable text found in the photo — try a closer, clearer shot.");
+      }
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Couldn't read the image");
+    } finally {
+      setReading(false);
+    }
+  };
 
   const submit = () => {
     const trimmed = text.trim();
@@ -108,6 +142,28 @@ export default function Composer({ onSend, disabled }: Props) {
             </button>
           </div>
         )}
+        {visionEnabled && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={onPickImage}
+            />
+            <button
+              type="button"
+              className="camera"
+              onClick={() => fileRef.current?.click()}
+              disabled={reading || disabled}
+              aria-label="Photograph the machine display"
+              title="Photograph the machine display (reads the error/code)"
+            >
+              {reading ? "…" : "📷"}
+            </button>
+          </>
+        )}
         <button
           className="send"
           onClick={submit}
@@ -117,8 +173,11 @@ export default function Composer({ onSend, disabled }: Props) {
           ↑
         </button>
       </div>
+      {imageError && <p className="composer-error">{imageError}</p>}
       <p className="composer-hint">
-        Enter to send · Shift+Enter for a new line{voiceSupported ? " · 🎤 to speak" : ""}
+        {reading ? "Reading the photo…" : "Enter to send · Shift+Enter for a new line"}
+        {voiceSupported ? " · 🎤 to speak" : ""}
+        {visionEnabled ? " · 📷 to read a display" : ""}
       </p>
     </div>
   );

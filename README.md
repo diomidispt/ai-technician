@@ -20,7 +20,9 @@ doesn't cover it. Everything runs on your machine — no AWS, no API keys, no to
 - **Chat history** — a Claude/ChatGPT-style **left sidebar** of your past conversations (persisted
   per user, private; keeps the last 30). Click to reopen a thread with its citations intact, start
   a new chat, or delete one.
-- **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding, **🎤 voice input**).
+- **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding, **🎤 voice input**,
+  **📷 photo input** — snap a machine's error display; a local vision model reads the code and it
+  flows into the manual search).
 - **Backend** — FastAPI: auth guard → history-aware query rewrite → **hybrid retrieve** (pgvector
   similarity **+** Postgres full-text, fused with **RRF**) → vector sufficiency gate → ground →
   stream with **precise** citations (`manual · page · section`); **web-search fallback**
@@ -51,6 +53,7 @@ ollama serve &                       # leave running
 ollama pull aya-expanse:8b
 ollama pull bge-m3
 ollama pull llama3.2:3b   # optional — small/fast model for the multi-turn query rewrite
+ollama pull minicpm-v     # optional — vision model for 📷 photo input (reads error displays)
 ```
 
 Models are kept **resident** (`keep_alive`) so there's no reload lag between questions.
