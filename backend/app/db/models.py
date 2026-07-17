@@ -36,6 +36,9 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     role: Mapped[str] = mapped_column(String(20), default="technician")  # admin | technician
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Forces a password change on next sign-in (fresh account / admin reset). Mirrors Cognito's
+    # temporary-password + FORCE_CHANGE_PASSWORD flow.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     access_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

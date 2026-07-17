@@ -151,7 +151,10 @@ function UsersPanel() {
             <tr key={u.id} className={u.is_active ? "" : "disabled-row"}>
               <td>{u.email}</td>
               <td>{u.role}</td>
-              <td>{u.is_active ? "active" : "disabled"}</td>
+              <td>
+                {u.is_active ? "active" : "disabled"}
+                {u.must_change_password && <span className="reset-badge">must reset</span>}
+              </td>
               <td>{u.access_expires ? u.access_expires.slice(0, 10) : "—"}</td>
               <td className="row-actions">
                 <button
@@ -163,6 +166,20 @@ function UsersPanel() {
                   }
                 >
                   {u.is_active ? "Disable" : "Enable"}
+                </button>
+                <button
+                  onClick={() =>
+                    wrap(async () => {
+                      const temp = window.prompt(
+                        `Set a temporary password for ${u.email}.\nThey'll be forced to change it at next sign-in.`,
+                      );
+                      if (!temp) return;
+                      await updateUser(u.id, { password: temp, must_change_password: true });
+                      await refresh();
+                    })
+                  }
+                >
+                  Reset password
                 </button>
                 <button
                   className="danger"

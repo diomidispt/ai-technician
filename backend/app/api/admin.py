@@ -27,6 +27,7 @@ class UserRow(BaseModel):
     email: str
     role: str
     is_active: bool
+    must_change_password: bool
     access_expires: datetime | None
 
 
@@ -35,6 +36,8 @@ class CreateUser(BaseModel):
     password: str
     role: str = "technician"
     access_expires: datetime | None = None
+    # Force a password change on first sign-in (Cognito temp-password parity).
+    must_change_password: bool = False
 
 
 class UpdateUser(BaseModel):
@@ -42,11 +45,17 @@ class UpdateUser(BaseModel):
     is_active: bool | None = None
     access_expires: datetime | None = None
     password: str | None = None
+    must_change_password: bool | None = None
 
 
 def _row(u: User) -> UserRow:
     return UserRow(
-        id=u.id, email=u.email, role=u.role, is_active=u.is_active, access_expires=u.access_expires
+        id=u.id,
+        email=u.email,
+        role=u.role,
+        is_active=u.is_active,
+        must_change_password=u.must_change_password,
+        access_expires=u.access_expires,
     )
 
 
@@ -68,6 +77,7 @@ def create_user(body: CreateUser, session: Session = Depends(get_session)) -> Us
         password_hash=hash_password(body.password),
         role=body.role,
         access_expires=body.access_expires,
+        must_change_password=body.must_change_password,
     )
     session.add(user)
     session.commit()
@@ -96,6 +106,8 @@ def update_user(
         user.access_expires = body.access_expires
     if body.password:
         user.password_hash = hash_password(body.password)
+    if body.must_change_password is not None:
+        user.must_change_password = body.must_change_password
     session.commit()
     return _row(user)
 

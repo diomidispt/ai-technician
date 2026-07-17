@@ -6,6 +6,7 @@ export interface AdminUser {
   email: string;
   role: "admin" | "technician";
   is_active: boolean;
+  must_change_password: boolean;
   access_expires: string | null;
 }
 
