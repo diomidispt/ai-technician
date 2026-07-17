@@ -461,16 +461,26 @@ body {
   max-width: 760px;
   margin: 0 auto;
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 8px 8px 8px 14px;
+  padding: 10px 12px;
   background: var(--bg);
 }
 
+/* Controls sit on their own row below the text box (never crowd / overflow it). */
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.composer-actions .send {
+  margin-left: auto; /* push send to the right */
+}
+
 .composer textarea {
-  flex: 1;
+  width: 100%;
   resize: none;
   border: none;
   outline: none;
@@ -478,7 +488,7 @@ body {
   color: var(--text);
   font: inherit;
   max-height: 200px;
-  padding: 6px 0;
+  padding: 4px 2px;
 }
 
 .composer .send {

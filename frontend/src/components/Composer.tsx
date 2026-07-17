@@ -112,73 +112,70 @@ export default function Composer({ onSend, disabled }: Props) {
           rows={1}
           autoFocus
         />
-        {voiceSupported && (
-          <div className="voice-controls">
-            <div className="voice-lang" role="group" aria-label="Voice language">
-              {VOICE_LANGS.map((l) => (
-                <button
-                  key={l.code}
-                  type="button"
-                  className={voiceLang === l.code ? "active" : ""}
-                  onClick={() => {
-                    setManualLang(true);
-                    setVoiceLang(l.code);
-                  }}
-                  disabled={listening}
-                  title={`Recognize speech in ${l.label}`}
-                >
-                  {l.label}
-                </button>
-              ))}
+        <div className="composer-actions">
+          {voiceSupported && (
+            <div className="voice-controls">
+              <div className="voice-lang" role="group" aria-label="Voice language">
+                {VOICE_LANGS.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    className={voiceLang === l.code ? "active" : ""}
+                    onClick={() => {
+                      setManualLang(true);
+                      setVoiceLang(l.code);
+                    }}
+                    disabled={listening}
+                    title={`Recognize speech in ${l.label}`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className={`mic ${listening ? "recording" : ""}`}
+                onClick={toggleMic}
+                aria-label={listening ? "Stop dictation" : "Dictate your question"}
+                title={listening ? "Stop dictation" : "Speak your question"}
+              >
+                {listening ? "■" : "🎤"}
+              </button>
             </div>
-            <button
-              type="button"
-              className={`mic ${listening ? "recording" : ""}`}
-              onClick={toggleMic}
-              aria-label={listening ? "Stop dictation" : "Dictate your question"}
-              title={listening ? "Stop dictation" : "Speak your question"}
-            >
-              {listening ? "■" : "🎤"}
-            </button>
-          </div>
-        )}
-        {visionEnabled && (
-          <>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={onPickImage}
-            />
-            <button
-              type="button"
-              className="camera"
-              onClick={() => fileRef.current?.click()}
-              disabled={reading || disabled}
-              aria-label="Photograph the machine display"
-              title="Photograph the machine display (reads the error/code)"
-            >
-              {reading ? "…" : "📷"}
-            </button>
-          </>
-        )}
-        <button
-          className="send"
-          onClick={submit}
-          disabled={disabled || !text.trim()}
-          aria-label="Send"
-        >
-          ↑
-        </button>
+          )}
+          {visionEnabled && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={onPickImage}
+              />
+              <button
+                type="button"
+                className="camera"
+                onClick={() => fileRef.current?.click()}
+                disabled={reading || disabled}
+                aria-label="Add a photo of the machine display"
+                title="Take or choose a photo of the machine display (reads the error/code)"
+              >
+                {reading ? "…" : "📷"}
+              </button>
+            </>
+          )}
+          <button
+            className="send"
+            onClick={submit}
+            disabled={disabled || !text.trim()}
+            aria-label="Send"
+          >
+            ↑
+          </button>
+        </div>
       </div>
       {imageError && <p className="composer-error">{imageError}</p>}
-      <p className="composer-hint">
-        {reading ? "Reading the photo…" : "Enter to send · Shift+Enter for a new line"}
-        {voiceSupported ? " · 🎤 to speak" : ""}
-        {visionEnabled ? " · 📷 to read a display" : ""}
-      </p>
+      {reading && <p className="composer-hint">Reading the photo…</p>}
     </div>
   );
 }
