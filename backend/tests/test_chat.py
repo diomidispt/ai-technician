@@ -7,7 +7,7 @@ via `make ingest` + the running stack, since it needs the local DB and model ser
 from fastapi.testclient import TestClient
 
 from app.config import settings
-from app.db.repository import RetrievedChunk, _rrf_fuse
+from app.db.repository import RetrievedChunk, _rrf_fuse, make_title
 from app.main import app
 from app.rag.chunking import CHUNK_OVERLAP, CHUNK_SIZE, chunk_page
 from app.rag.pipeline import (
@@ -131,6 +131,15 @@ def test_rrf_fuse_respects_top_k():
     vector_hits = [_chunk(i, i, 0.1 * i) for i in range(1, 6)]
     fused = _rrf_fuse(vector_hits, [], rrf_k=60, top_k=2)
     assert len(fused) == 2
+
+
+def test_make_title():
+    assert make_title("  What does   E14 mean? ") == "What does E14 mean?"
+    assert make_title("") == "New chat"
+    assert make_title("   ") == "New chat"
+    long = "word " * 40
+    title = make_title(long)
+    assert len(title) <= 80 and title.endswith("…")
 
 
 def test_split_history_picks_last_user_message():

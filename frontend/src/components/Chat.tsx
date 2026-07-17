@@ -1,6 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { streamChat, type AnswerSource, type ChatMessage, type Citation } from "../api/chat";
+import {
+  type ConversationSummary,
+  deleteConversation,
+  getConversation,
+  listConversations,
+} from "../api/conversations";
 import Composer from "./Composer";
+import ConversationSidebar from "./ConversationSidebar";
 import MessageList from "./MessageList";
 
 export interface UiMessage extends ChatMessage {
@@ -15,8 +22,64 @@ const nextId = () => `m${++idCounter}`;
 
 export default function Chat() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [conversationId, setConversationId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const refreshList = useCallback(() => {
+    listConversations()
+      .then(setConversations)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshList();
+  }, [refreshList]);
+
+  const newChat = useCallback(() => {
+    if (busy) return;
+    setConversationId(null);
+    setMessages([]);
+  }, [busy]);
+
+  const selectConversation = useCallback(
+    async (id: number) => {
+      if (busy || id === conversationId) return;
+      try {
+        const conv = await getConversation(id);
+        setConversationId(conv.id);
+        setMessages(
+          conv.messages.map((m) => ({
+            id: nextId(),
+            role: m.role,
+            content: m.content,
+            source: m.source ?? undefined,
+            citations: m.citations ?? undefined,
+          })),
+        );
+      } catch {
+        /* ignore — likely deleted elsewhere */
+      }
+    },
+    [busy, conversationId],
+  );
+
+  const removeConversation = useCallback(
+    async (id: number) => {
+      try {
+        await deleteConversation(id);
+      } catch {
+        /* ignore */
+      }
+      if (id === conversationId) {
+        setConversationId(null);
+        setMessages([]);
+      }
+      refreshList();
+    },
+    [conversationId, refreshList],
+  );
 
   const send = useCallback(
     async (text: string) => {
@@ -45,10 +108,14 @@ export default function Chat() {
 
       await streamChat(
         history,
+        conversationId,
         {
           onToken: (delta) => patch((m) => ({ ...m, content: m.content + delta })),
-          onDone: (source, citations) =>
-            patch((m) => ({ ...m, source, citations, streaming: false })),
+          onDone: (source, citations, newId) => {
+            patch((m) => ({ ...m, source, citations, streaming: false }));
+            if (newId && newId !== conversationId) setConversationId(newId);
+            refreshList();
+          },
           onError: (err) =>
             patch((m) => ({
               ...m,
@@ -62,13 +129,22 @@ export default function Chat() {
       setBusy(false);
       abortRef.current = null;
     },
-    [busy, messages],
+    [busy, messages, conversationId, refreshList],
   );
 
   return (
-    <main className="chat">
-      <MessageList messages={messages} />
-      <Composer onSend={send} disabled={busy} />
-    </main>
+    <div className="chat-layout">
+      <ConversationSidebar
+        conversations={conversations}
+        activeId={conversationId}
+        onSelect={selectConversation}
+        onNew={newChat}
+        onDelete={removeConversation}
+      />
+      <main className="chat">
+        <MessageList messages={messages} />
+        <Composer onSend={send} disabled={busy} />
+      </main>
+    </div>
   );
 }

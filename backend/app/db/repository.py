@@ -1,9 +1,9 @@
-"""Data access for documents and chunks. All vector/keyword SQL lives here — never in handlers."""
+"""Data access for documents, chunks, and conversations. All SQL lives here — never in handlers."""
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Chunk, Document
+from app.db.models import Chunk, Conversation, Document, Message
 
 
 def upsert_document(session: Session, filename: str, title: str = "") -> Document:
@@ -151,3 +151,95 @@ def hybrid_search(
     vector_hits = vector_search(session, query_embedding, candidate_k)
     keyword_hits = keyword_search(session, query_text, candidate_k)
     return _rrf_fuse(vector_hits, keyword_hits, rrf_k, top_k)
+
+
+# ---------------- Conversations (per-user chat history) ----------------
+def make_title(question: str, limit: int = 80) -> str:
+    """A short thread title from the first question (like ChatGPT's auto-title)."""
+    text = " ".join(question.split()).strip()
+    if not text:
+        return "New chat"
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def create_conversation(session: Session, user_email: str, title: str) -> Conversation:
+    conv = Conversation(user_email=user_email, title=title)
+    session.add(conv)
+    session.flush()  # assign id
+    return conv
+
+
+def add_message(
+    session: Session,
+    conversation_id: int,
+    role: str,
+    content: str,
+    source: str | None = None,
+    citations: list | None = None,
+) -> None:
+    session.add(
+        Message(
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            source=source,
+            citations=citations,
+        )
+    )
+    # Bump the thread so it sorts to the top of the sidebar.
+    conv = session.get(Conversation, conversation_id)
+    if conv is not None:
+        conv.updated_at = func.now()
+
+
+def owns_conversation(session: Session, conversation_id: int, user_email: str) -> bool:
+    return (
+        session.scalar(
+            select(Conversation.id).where(
+                Conversation.id == conversation_id, Conversation.user_email == user_email
+            )
+        )
+        is not None
+    )
+
+
+def list_conversations(session: Session, user_email: str, limit: int) -> list[Conversation]:
+    return list(
+        session.scalars(
+            select(Conversation)
+            .where(Conversation.user_email == user_email)
+            .order_by(Conversation.updated_at.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def get_conversation(
+    session: Session, conversation_id: int, user_email: str
+) -> Conversation | None:
+    """Return the conversation (with messages) only if it belongs to this user."""
+    return session.scalar(
+        select(Conversation).where(
+            Conversation.id == conversation_id, Conversation.user_email == user_email
+        )
+    )
+
+
+def delete_conversation(session: Session, conversation_id: int, user_email: str) -> bool:
+    result = session.execute(
+        delete(Conversation).where(
+            Conversation.id == conversation_id, Conversation.user_email == user_email
+        )
+    )
+    return result.rowcount > 0
+
+
+def prune_conversations(session: Session, user_email: str, keep: int) -> None:
+    """Keep only the `keep` most-recently-updated conversations for a user; delete the rest."""
+    stale = (
+        select(Conversation.id)
+        .where(Conversation.user_email == user_email)
+        .order_by(Conversation.updated_at.desc())
+        .offset(keep)
+    )
+    session.execute(delete(Conversation).where(Conversation.id.in_(stale)))

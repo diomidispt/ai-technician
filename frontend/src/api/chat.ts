@@ -24,12 +24,13 @@ export interface Citation {
 
 interface StreamHandlers {
   onToken: (delta: string) => void;
-  onDone: (source: AnswerSource, citations: Citation[]) => void;
+  onDone: (source: AnswerSource, citations: Citation[], conversationId: number | null) => void;
   onError: (error: Error) => void;
 }
 
 export async function streamChat(
   messages: ChatMessage[],
+  conversationId: number | null,
   handlers: StreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -41,7 +42,7 @@ export async function streamChat(
     response = await fetch("/api/chat", {
       method: "POST",
       headers,
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, conversation_id: conversationId }),
       signal,
     });
   } catch (err) {
@@ -103,7 +104,11 @@ function dispatchEvent(rawEvent: string, handlers: StreamHandlers): void {
     if (event === "token" && typeof parsed.delta === "string") {
       handlers.onToken(parsed.delta);
     } else if (event === "done") {
-      handlers.onDone((parsed.source as AnswerSource) ?? "internal", parsed.citations ?? []);
+      handlers.onDone(
+        (parsed.source as AnswerSource) ?? "internal",
+        parsed.citations ?? [],
+        parsed.conversation_id ?? null,
+      );
     }
   } catch {
     // Ignore malformed frames — the stream keeps going.

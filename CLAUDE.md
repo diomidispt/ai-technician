@@ -72,6 +72,9 @@ RAG core (retrieve/rerank/synthesize/citations) → web fallback → chat UI →
   (`must_change_password`) (`app/auth/`). Real Cognito swaps in behind the same route guards.
 - **Admin console** — manage users (incl. reset password), upload/ingest PDFs, view the query
   audit log (`app/api/admin.py`).
+- **Chat history** — persisted per-user conversations (`conversations` + `messages` tables) behind a
+  sidebar; private per user, last-30 retention (`app/api/conversations.py`). The RDS `conversations`
+  table, now local.
 - **RAG** — internal-first **hybrid retrieval**: pgvector similarity + Postgres full-text keyword
   search fused with **RRF** (a $0 reranker; catches error codes / part numbers), with citations
   (manual · page · section); **history-aware** (follow-ups rewritten to standalone queries);
@@ -82,7 +85,9 @@ RAG core (retrieve/rerank/synthesize/citations) → web fallback → chat UI →
 - **Eval** — `make eval` scores retrieval + routing against `app/eval/` so RAG changes are
   measured, not eyeballed.
 - **Model** — Ollama ($0, offline): `aya-expanse:8b` answers + `bge-m3` embeddings (multilingual),
-  behind `app/rag/ollama_client.py` — swappable for Claude/Bedrock later.
+  behind `app/rag/ollama_client.py` — swappable for Claude/Bedrock later. Models kept resident
+  (`keep_alive`), answer length capped, and the multi-turn query-rewrite runs on a small fast model
+  (`llama3.2:3b`) for latency — all without changing answer quality.
 
 Still to build for cloud: real Cognito, RDS (vs local Postgres), S3+Textract ingestion (vs
 folder/pypdf), Terraform infra + deploy. The app logic doesn't change — only the backing services.

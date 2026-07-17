@@ -17,6 +17,9 @@ doesn't cover it. Everything runs on your machine — no AWS, no API keys, no to
   disable (revocation), access-expiry dates, and **password change / admin forced-reset**.
 - **Admin console** — manage users (incl. **reset password**), **upload & ingest PDFs** from the
   browser, view a **query audit log** (who asked what). Admins only.
+- **Chat history** — a Claude/ChatGPT-style **left sidebar** of your past conversations (persisted
+  per user, private; keeps the last 30). Click to reopen a thread with its citations intact, start
+  a new chat, or delete one.
 - **Frontend** — React + Vite chat UI (streaming, markdown, Jensen branding, **🎤 voice input**).
 - **Backend** — FastAPI: auth guard → history-aware query rewrite → **hybrid retrieve** (pgvector
   similarity **+** Postgres full-text, fused with **RRF**) → vector sufficiency gate → ground →
@@ -47,7 +50,10 @@ brew install ollama
 ollama serve &                       # leave running
 ollama pull aya-expanse:8b
 ollama pull bge-m3
+ollama pull llama3.2:3b   # optional — small/fast model for the multi-turn query rewrite
 ```
+
+Models are kept **resident** (`keep_alive`) so there's no reload lag between questions.
 
 **Optional — OCR for scanned PDFs/drawings** (only needed if you upload *scanned* docs; the sample
 manual is digital text and needs none):

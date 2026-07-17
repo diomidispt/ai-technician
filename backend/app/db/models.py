@@ -1,13 +1,15 @@
 """SQLAlchemy models.
 
-One database holds documents + their chunked, embedded text, plus users and an audit log
-(CLAUDE.md §2 Data). Users/audit are the local stand-ins for Cognito + the RDS audit tables.
+One database holds documents + their chunked, embedded text, plus users, an audit log, and
+per-user conversation history (CLAUDE.md §2 Data). Users/audit/conversations are the local
+stand-ins for Cognito + the RDS tables.
 """
 
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -53,6 +55,49 @@ class AuditLog(Base):
     question: Mapped[str] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(20))  # internal | web | none
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Conversation(Base):
+    """A chat thread belonging to one user — the persisted history behind the sidebar.
+
+    Local stand-in for the RDS `conversations` table. Scoped by `user_email` (private per user);
+    retention is enforced in the API (keep the newest N per user).
+    """
+
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_email: Mapped[str] = mapped_column(String(320), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="New chat")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    # Bumped on each new message so active threads sort to the top of the sidebar.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="Message.id",
+    )
+
+
+class Message(Base):
+    """One turn in a conversation. Assistant rows also carry the answer `source` + `citations`."""
+
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(12))  # user | assistant
+    content: Mapped[str] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(String(20), default=None)  # internal | web | none
+    citations: Mapped[list | None] = mapped_column(JSONB, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 
 
 class Document(Base):

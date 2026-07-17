@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     answer_model: str = "aya-expanse:8b"  # multilingual; good Greek (llama3.2:3b = faster English)
     embed_model: str = "bge-m3"  # multilingual embeddings -> cross-lingual retrieval
     embed_dim: int = 1024  # bge-m3 output dimension (must match the embedding model)
+    # Small/fast model for the multi-turn query rewrite (a throwaway one-liner, doesn't need the
+    # big model). Falls back to the raw question if this model isn't pulled — see pipeline.
+    rewrite_model: str = "llama3.2:3b"
+    # Keep models resident between requests so there's no multi-second reload lag on the next
+    # question. Sent on every Ollama call. "30m" = stay loaded 30 min after last use.
+    ollama_keep_alive: str = "30m"
+    # Cap the answer length so generation doesn't run on unnecessarily (speed). Plenty for a
+    # thorough grounded answer; -1 would be unlimited.
+    answer_num_predict: int = 800
 
     # --- Retrieval ---
     retrieval_top_k: int = 5
@@ -41,6 +50,10 @@ class Settings(BaseSettings):
     # so retrieval isn't blind to context. One fast LLM call; falls back to the raw question.
     query_rewrite_enabled: bool = True
     history_max_turns: int = 6  # most recent messages passed to the model for coherence
+
+    # --- Conversation history (persisted per-user threads behind the sidebar) ---
+    # Keep only the N most-recently-used threads per user; starting an N+1th prunes the oldest.
+    history_max_conversations: int = 30
     # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
     # the library as not covering the question -> web fallback. Tuned for bge-m3 on the
     # section-prefixed corpus (measured: in-scope best ~0.26-0.37, out-of-scope best ~0.57-0.63),

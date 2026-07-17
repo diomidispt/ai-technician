@@ -58,8 +58,11 @@ Almost the whole diagram is live end-to-end on your machine — each cloud box h
 - **Claude on Bedrock** = **Ollama** (`aya-expanse:8b` + `bge-m3`, multilingual) behind a
   swappable client — $0, offline.
 - **Web Search** fallback = **DuckDuckGo** (no key), runs only when the library is insufficient.
-- **RDS + pgvector** = **Postgres + pgvector in Docker** (chunks **+ users + audit log**); HNSW
-  vector index + GIN full-text index.
+- **RDS + pgvector** = **Postgres + pgvector in Docker** (chunks **+ users + audit log +
+  conversations/messages**); HNSW vector index + GIN full-text index.
+- **Conversation history** = persisted per-user threads (`conversations` + `messages`) behind a
+  ChatGPT-style sidebar; private per user, last-30 retention. Models stay resident (`keep_alive`)
+  and the query-rewrite runs on a small fast model for latency.
 - **Ingestion** = admin uploads a PDF (or a local folder) → **pdfplumber** (section-aware prose +
   whole-table chunks) → **Tesseract OCR fallback** for scanned pages/drawings (local stand-in for
   Textract) → chunk → embed. No S3 yet.
@@ -126,5 +129,21 @@ volume and re-ingest: `docker compose down -v && docker compose up` then `make i
   (persisted `conversations` deferred). Language detection stays on the original question.
 - **Consequences:** coherent multi-turn troubleshooting at near-zero added complexity; a persisted
   conversation store can be added later without changing the retrieval seam.
+
+### ADR-0006 — Persisted conversation history + free speed wins
+- **Status:** accepted (2026-07)
+- **Context:** chats lived only in browser state (lost on reload); users wanted a Claude/ChatGPT-style
+  history sidebar. Separately, answers "felt slow" on a local 8B model.
+- **Decision:** add `conversations` + `messages` tables (the RDS `conversations` table, now local),
+  persisted **per user** with **last-30 retention**; the chat endpoint saves the user message up
+  front and the assistant message (with source + citations) after streaming. For speed — without
+  touching quality — keep models **resident** (`keep_alive`), **cap** answer length
+  (`num_predict`), and route the multi-turn **query-rewrite to a small fast model** (`llama3.2:3b`,
+  graceful fallback to the raw question if absent). New tables are created by `create_all`, so no
+  migration step. The local 8B latency floor remains; a smaller default or cloud Claude is a
+  separate decision.
+- **Consequences:** durable, private per-user history at negligible cost (text rows; zero extra
+  model work); noticeably less lag between questions. Admin all-user visibility still comes from the
+  audit log, not this sidebar.
 
 <!-- Add further ADRs here (auth model, embedding choice, …). -->

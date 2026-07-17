@@ -140,8 +140,10 @@ async def _rewrite_query(prior: list[dict], question: str) -> str:
         },
     ]
     try:
-        rewritten = (await ollama_client.chat(messages)).strip().strip('"')
-    except Exception:  # model/network hiccup — retrieval still works on the raw question.
+        rewritten = (
+            (await ollama_client.chat(messages, model=settings.rewrite_model)).strip().strip('"')
+        )
+    except Exception:  # model missing/network hiccup — retrieval still works on the raw question.
         return question
     # Guard against an empty or runaway (chatty) rewrite.
     return rewritten if rewritten and len(rewritten) <= 300 else question
