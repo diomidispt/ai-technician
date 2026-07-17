@@ -24,9 +24,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
-    title="Jensen AI Technical Support Assistant", version="0.2.0", lifespan=lifespan
-)
+app = FastAPI(title="Jensen AI Technical Support Assistant", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

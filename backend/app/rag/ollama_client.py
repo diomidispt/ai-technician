@@ -34,6 +34,17 @@ def embed_sync(text: str) -> list[float]:
     return resp.json()["embedding"]
 
 
+async def chat(messages: list[dict]) -> str:
+    """Single (non-streaming) completion. Used for the fast history-aware query rewrite."""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            f"{settings.ollama_base_url}/api/chat",
+            json={"model": settings.answer_model, "messages": messages, "stream": False},
+        )
+        resp.raise_for_status()
+        return resp.json().get("message", {}).get("content", "")
+
+
 async def chat_stream(messages: list[dict]) -> AsyncIterator[str]:
     """Stream assistant token deltas from Ollama's /api/chat (NDJSON)."""
     async with httpx.AsyncClient(timeout=None) as client:

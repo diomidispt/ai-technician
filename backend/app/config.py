@@ -29,10 +29,23 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retrieval_top_k: int = 5
+    # Hybrid retrieval: vector search (meaning) fused with Postgres full-text (exact tokens like
+    # error codes / part numbers / model names) via Reciprocal Rank Fusion. Set HYBRID_ENABLED=false
+    # to fall back to vector-only.
+    hybrid_enabled: bool = True
+    retrieval_candidate_k: int = 20  # candidates pulled from EACH retriever before fusion
+    rrf_k: int = 60  # RRF constant; larger = flatter weighting of rank positions
+
+    # --- Conversation memory (history-aware retrieval) ---
+    # Rewrite a follow-up ("and for the WE110?") into a standalone search query using recent turns,
+    # so retrieval isn't blind to context. One fast LLM call; falls back to the raw question.
+    query_rewrite_enabled: bool = True
+    history_max_turns: int = 6  # most recent messages passed to the model for coherence
     # Sufficiency gate (internal-first): if the BEST match's cosine distance exceeds this, treat
-    # the library as not covering the question and refuse. Tuned for bge-m3 (in-scope best ~0.3,
-    # out-of-scope best ~0.7+).
-    sufficiency_max_distance: float = 0.6
+    # the library as not covering the question -> web fallback. Tuned for bge-m3 on the
+    # section-prefixed corpus (measured: in-scope best ~0.26-0.37, out-of-scope best ~0.57-0.63),
+    # so 0.50 separates them with margin. Verified via `make eval` (routing accuracy).
+    sufficiency_max_distance: float = 0.50
     # Citations/context: keep only chunks within this distance of the best match, so we don't
     # cite loosely-related pages. Absolute thresholds don't separate them (distances cluster);
     # a margin off the best match does.
@@ -52,6 +65,13 @@ class Settings(BaseSettings):
     # Where admin-uploaded PDFs are stored + ingested from. In the container this is /docs
     # (a mounted volume); locally it's the sample_docs folder.
     docs_dir: str = "/docs"
+
+    # OCR fallback (local stand-in for AWS Textract): when a page has little/no extractable text
+    # (a scan or a drawing), render it and run Tesseract so its labels/notes become searchable.
+    # Needs the system `tesseract` binary (+ language packs); degrades gracefully if absent.
+    ocr_enabled: bool = True
+    ocr_min_text_chars: int = 20  # below this, treat the page as scanned and try OCR
+    ocr_langs: str = "ell+eng"  # Tesseract language packs (Greek + English)
 
     # --- Web-search fallback (DuckDuckGo, no API key) ---
     # Runs ONLY when the internal library is insufficient (internal-first rule). Sends the

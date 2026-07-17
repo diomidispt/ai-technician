@@ -528,16 +528,38 @@ body {
   font-size: 13px;
   margin: 0;
 }
-.login-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
+.link-btn {
+  margin-top: 2px;
+  border: none;
+  background: none;
   color: var(--text-muted);
-  text-align: center;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
 }
-.login-hint code {
-  background: var(--bg-subtle);
-  padding: 1px 5px;
-  border-radius: 5px;
+
+/* --- Voluntary change-password modal (forced mode reuses the .login full-screen layout) --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  padding: 20px;
+}
+
+/* --- "must reset" badge in the admin users table --- */
+.reset-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
 }
 
 /* --- Source badge on web answers --- */

@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 
 from app.config import settings
 from app.db.models import AuditLog
-from app.db.repository import RetrievedChunk, search_chunks
+from app.db.repository import RetrievedChunk, _rrf_fuse, keyword_search, vector_search
 from app.db.session import SessionLocal
 from app.rag import ollama_client, websearch
 
@@ -57,31 +57,94 @@ Jensen manuals, and should be verified.
 def _build_context(chunks: list[RetrievedChunk]) -> str:
     blocks = []
     for i, c in enumerate(chunks, start=1):
-        blocks.append(f"[{i}] (source: {c.filename}, page {c.page})\n{c.content}")
+        loc = f"page {c.page}"
+        if c.section:
+            loc += f", section {c.section}"
+        blocks.append(f"[{i}] (source: {c.filename}, {loc})\n{c.content}")
     return "\n\n".join(blocks)
 
 
 def _citations(chunks: list[RetrievedChunk]) -> list[dict]:
     seen, out = set(), []
     for c in chunks:
-        key = (c.filename, c.page)
+        key = (c.filename, c.page, c.section)
         if key not in seen:
             seen.add(key)
-            out.append({"manual": c.filename, "page": c.page})
+            cite: dict = {"manual": c.filename, "page": c.page}
+            if c.section:
+                cite["section"] = c.section
+            out.append(cite)
     return out
 
 
-def _select_relevant(hits: list[RetrievedChunk]) -> list[RetrievedChunk]:
-    """Internal-first selection. `hits` is ordered by ascending distance.
+def _select_relevant(
+    vector_hits: list[RetrievedChunk], keyword_hits: list[RetrievedChunk] | None = None
+) -> list[RetrievedChunk]:
+    """Internal-first selection. `vector_hits` is ordered by ascending distance.
 
-    Returns [] when even the closest chunk is beyond the sufficiency gate (library doesn't
-    cover it -> web fallback / refuse). Otherwise keeps chunks within `relevance_margin` of the
-    best match so we ground on and cite the relevant pages, not loosely-related ones.
+    The sufficiency gate stays vector-based: if even the closest chunk by MEANING is beyond the
+    gate, the library doesn't cover it (-> web fallback / refuse). This keeps internal-first
+    behaviour identical regardless of hybrid fusion. When `keyword_hits` are supplied, the passing
+    chunks are re-ordered by RRF (vector + keyword). Otherwise (vector-only) we keep chunks within
+    `relevance_margin` of the best match so we cite relevant pages, not loosely-related ones.
     """
-    if not hits or hits[0].distance > settings.sufficiency_max_distance:
+    if not vector_hits or vector_hits[0].distance is None:
         return []
-    cutoff = hits[0].distance + settings.relevance_margin
-    return [h for h in hits if h.distance <= cutoff]
+    if vector_hits[0].distance > settings.sufficiency_max_distance:
+        return []
+    if keyword_hits:
+        return _rrf_fuse(vector_hits, keyword_hits, settings.rrf_k, settings.retrieval_top_k)
+    cutoff = vector_hits[0].distance + settings.relevance_margin
+    near = [h for h in vector_hits if h.distance is not None and h.distance <= cutoff]
+    return near[: settings.retrieval_top_k]
+
+
+REWRITE_PROMPT = (
+    "You rewrite a technician's latest message into a single standalone search query for a "
+    "manual database, using the conversation for context. Resolve pronouns and implicit "
+    "references (equipment models, error codes, parts). Keep the original language. "
+    "Output ONLY the rewritten query — no preamble, no quotes, no explanation."
+)
+
+
+def _split_history(history: list[dict]) -> tuple[list[dict], str]:
+    """Return (prior turns, current question). The question is the last user message."""
+    for i in range(len(history) - 1, -1, -1):
+        if history[i].get("role") == "user":
+            return history[:i], history[i].get("content", "")
+    return [], ""
+
+
+def _recent_turns(prior: list[dict]) -> list[dict]:
+    """The last `history_max_turns` prior messages, as clean {role, content} dicts."""
+    turns = [
+        {"role": m["role"], "content": m["content"]}
+        for m in prior
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    return turns[-settings.history_max_turns :]
+
+
+async def _rewrite_query(prior: list[dict], question: str) -> str:
+    """Rewrite a follow-up into a standalone retrieval query. Falls back to the raw question."""
+    turns = _recent_turns(prior)
+    if not turns or not settings.query_rewrite_enabled:
+        return question
+    convo = "\n".join(f"{m['role']}: {m['content']}" for m in turns)
+    messages = [
+        {"role": "system", "content": REWRITE_PROMPT},
+        {
+            "role": "user",
+            "content": f"Conversation so far:\n{convo}\n\nLatest message: {question}\n\n"
+            "Standalone search query:",
+        },
+    ]
+    try:
+        rewritten = (await ollama_client.chat(messages)).strip().strip('"')
+    except Exception:  # model/network hiccup — retrieval still works on the raw question.
+        return question
+    # Guard against an empty or runaway (chatty) rewrite.
+    return rewritten if rewritten and len(rewritten) <= 300 else question
 
 
 def _sse(event: str, payload: dict) -> dict:
@@ -97,25 +160,42 @@ def _record_audit(user_email: str, question: str, source: str) -> None:
         session.close()
 
 
-async def run(question: str, user_email: str) -> AsyncIterator[dict]:
-    """Yield SSE events (`token` deltas then a terminal `done` carrying source + citations)."""
+async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
+    """Yield SSE events (`token` deltas then a terminal `done` carrying source + citations).
+
+    `history` is the full conversation ({role, content}); the last user message is the question.
+    Prior turns give the model context and drive a history-aware retrieval-query rewrite.
+    """
+    prior, question = _split_history(history)
     language = _detect_language(question)
 
-    # 1. Internal library first.
-    query_embedding = await ollama_client.embed(question)
+    # 1. Internal library first. A follow-up is rewritten to a standalone query so retrieval isn't
+    #    blind to context. Vector (meaning) + keyword (exact tokens); the sufficiency gate stays
+    #    vector-based, RRF just re-orders the passing chunks.
+    search_query = await _rewrite_query(prior, question)
+    query_embedding = await ollama_client.embed(search_query)
     session = SessionLocal()
     try:
-        hits = search_chunks(session, query_embedding, settings.retrieval_top_k)
+        if settings.hybrid_enabled:
+            vector_hits = vector_search(session, query_embedding, settings.retrieval_candidate_k)
+            keyword_hits = keyword_search(session, search_query, settings.retrieval_candidate_k)
+        else:
+            vector_hits = vector_search(session, query_embedding, settings.retrieval_top_k)
+            keyword_hits = []
     finally:
         session.close()
-    relevant = _select_relevant(hits)
+    relevant = _select_relevant(vector_hits, keyword_hits)
 
     if relevant:
         context = _build_context(relevant)
         messages = [
             {"role": "system", "content": INTERNAL_PROMPT},
-            {"role": "user", "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}\n\n"
-             f"Write your entire answer in {language}."},
+            *_recent_turns(prior),
+            {
+                "role": "user",
+                "content": f"CONTEXT:\n{context}\n\nQUESTION: {question}\n\n"
+                f"Write your entire answer in {language}.",
+            },
         ]
         async for delta in ollama_client.chat_stream(messages):
             yield _sse("token", {"delta": delta})
@@ -123,17 +203,21 @@ async def run(question: str, user_email: str) -> AsyncIterator[dict]:
         yield _sse("done", {"source": "internal", "citations": _citations(relevant)})
         return
 
-    # 2. Web-search fallback (only because the library was insufficient).
+    # 2. Web-search fallback (only because the library was insufficient). Search the standalone
+    #    (history-aware) query so follow-ups aren't sent to the web without context.
     if settings.web_fallback_enabled:
-        results = await websearch.search(question)
+        results = await websearch.search(search_query)
         if results:
             numbered = "\n\n".join(
                 f"[{i}] {r.title}\n{r.snippet}\n({r.url})" for i, r in enumerate(results, start=1)
             )
             messages = [
                 {"role": "system", "content": WEB_PROMPT},
-                {"role": "user", "content": f"WEB RESULTS:\n{numbered}\n\nQUESTION: {question}\n\n"
-                 f"Write your entire answer in {language}."},
+                {
+                    "role": "user",
+                    "content": f"WEB RESULTS:\n{numbered}\n\nQUESTION: {question}\n\n"
+                    f"Write your entire answer in {language}.",
+                },
             ]
             async for delta in ollama_client.chat_stream(messages):
                 yield _sse("token", {"delta": delta})

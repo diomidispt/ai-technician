@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "./auth/AuthContext";
 import AdminConsole from "./components/AdminConsole";
+import ChangePassword from "./components/ChangePassword";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
 
@@ -10,6 +11,7 @@ export default function App() {
   const { user, loading, logout } = useAuth();
   const [view, setView] = useState<View>("chat");
   const [model, setModel] = useState("");
+  const [showChangePw, setShowChangePw] = useState(false);
 
   useEffect(() => {
     fetch("/api/meta")
@@ -26,6 +28,9 @@ export default function App() {
 
   if (loading) return <div className="app-loading">Loading…</div>;
   if (!user) return <Login />;
+
+  // Forced reset (fresh account / admin reset) blocks the app until the password is changed.
+  if (user.must_change_password) return <ChangePassword forced />;
 
   // Belt-and-suspenders: only admins can ever see the admin view.
   const showAdmin = user.role === "admin" && view === "admin";
@@ -62,6 +67,9 @@ export default function App() {
           <span className="user-chip">
             Username: <b>{user.email}</b> · Role: <b>{user.role}</b>
           </span>
+          <button className="logout-btn" onClick={() => setShowChangePw(true)}>
+            Change password
+          </button>
           <button className="logout-btn" onClick={logout}>
             Sign out
           </button>
@@ -69,6 +77,7 @@ export default function App() {
       </header>
 
       {showAdmin ? <AdminConsole /> : <Chat />}
+      {showChangePw && <ChangePassword onClose={() => setShowChangePw(false)} />}
     </div>
   );
 }

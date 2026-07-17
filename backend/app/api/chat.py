@@ -41,11 +41,8 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def chat(
-    request: ChatRequest, user: User = Depends(get_current_user)
-) -> EventSourceResponse:
-    question = next(
-        (m.content for m in reversed(request.messages) if m.role == "user"),
-        "",
-    )
-    return EventSourceResponse(pipeline.run(question, user.email))
+async def chat(request: ChatRequest, user: User = Depends(get_current_user)) -> EventSourceResponse:
+    # Pass the whole conversation: the pipeline uses prior turns for context + a history-aware
+    # retrieval rewrite, and treats the last user message as the question.
+    history = [{"role": m.role, "content": m.content} for m in request.messages]
+    return EventSourceResponse(pipeline.run(history, user.email))
