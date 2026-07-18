@@ -14,6 +14,7 @@ export default function App() {
   const [view, setView] = useState<View>("chat");
   const [model, setModel] = useState("");
   const [showChangePw, setShowChangePw] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/meta")
@@ -60,39 +61,64 @@ export default function App() {
           </nav>
         )}
 
-        <div className="header-meta">
-          {model && (
-            <span className="model-pill" title="Ollama">
-              <span className="model-dot" /> {t.aiModel} {model}
-            </span>
-          )}
-          <span className="user-chip">
-            {t.usernameLabel} <b>{user.email}</b> · {t.roleLabel} <b>{roleLabel(user.role, t)}</b>
-          </span>
-          <button className="logout-btn" onClick={() => setShowChangePw(true)}>
-            {t.changePassword}
+        {/* Right side: just the language toggle + a gear menu holding everything secondary. */}
+        <div className="header-right">
+          <button
+            className="lang-toggle"
+            onClick={toggle}
+            title="Switch language / Αλλαγή γλώσσας"
+            aria-label="Switch language"
+          >
+            🌐 {lang === "el" ? "EN" : "ΕΛ"}
           </button>
-          <button className="logout-btn" onClick={logout}>
-            {t.signOut}
-          </button>
-        </div>
 
-        {/* Language toggle — stays visible on mobile (where header-meta is hidden). */}
-        <button
-          className="lang-toggle"
-          onClick={toggle}
-          title="Switch language / Αλλαγή γλώσσας"
-          aria-label="Switch language"
-        >
-          🌐 {lang === "el" ? "EN" : "ΕΛ"}
-        </button>
+          <div className="gear-wrap">
+            <button
+              className="gear-btn"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Menu"
+              title="Menu"
+            >
+              ⚙
+            </button>
+            {menuOpen && (
+              <>
+                <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
+                <div className="gear-menu">
+                  <div className="gear-info">
+                    <b>{user.email}</b>
+                    <span className="gear-role">{roleLabel(user.role, t)}</span>
+                  </div>
+                  {model && (
+                    <div className="gear-model">
+                      {t.aiModel} {model}
+                    </div>
+                  )}
+                  <div className="gear-sep" />
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowChangePw(true);
+                    }}
+                  >
+                    {t.changePassword}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    {t.signOut}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </header>
 
-      {showAdmin ? (
-        <AdminConsole />
-      ) : (
-        <Chat onSignOut={logout} onChangePassword={() => setShowChangePw(true)} />
-      )}
+      {showAdmin ? <AdminConsole /> : <Chat />}
       {showChangePw && <ChangePassword onClose={() => setShowChangePw(false)} />}
     </div>
   );

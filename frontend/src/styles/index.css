@@ -106,6 +106,13 @@ body {
   gap: 8px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .lang-toggle {
   flex: 0 0 auto;
   border: 1px solid var(--border);
@@ -117,6 +124,78 @@ body {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* --- Gear menu (username, AI model, change password, sign out) --- */
+.gear-wrap {
+  position: relative;
+}
+.gear-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.gear-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 41;
+  min-width: 210px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gear-info {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px 2px;
+  font-size: 13px;
+}
+.gear-role {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.gear-model {
+  padding: 2px 10px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-word;
+}
+.gear-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.gear-menu button {
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gear-menu button:hover {
+  background: var(--bg-subtle);
 }
 
 .demo-badge {
@@ -264,25 +343,6 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-muted);
-}
-/* Account actions in the drawer footer — desktop keeps them in the header. */
-.conv-account {
-  display: none;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-  margin-top: 6px;
-  gap: 6px;
-  flex-direction: column;
-}
-.conv-account button {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 10px;
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
 }
 
 .chat {
@@ -969,16 +1029,9 @@ body {
   .brand-text strong {
     font-size: 15px;
   }
-  .brand-sub {
-    display: none; /* secondary info — free up width on a phone */
-  }
-  /* Account actions (change password / sign out) move into the drawer footer on mobile, so the
-     header stays clean and nothing forces a horizontal scroll. */
-  .header-meta {
+  /* Keep just the J logo on phones so the header (logo · tabs · 🌐 · ⚙) stays roomy. */
+  .brand-text {
     display: none;
-  }
-  .conv-account {
-    display: flex;
   }
 
   /* Conversation sidebar becomes an off-canvas drawer, toggled by the ☰ bar. */

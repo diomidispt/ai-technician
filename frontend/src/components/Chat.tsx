@@ -21,12 +21,7 @@ export interface UiMessage extends ChatMessage {
 let idCounter = 0;
 const nextId = () => `m${++idCounter}`;
 
-interface ChatProps {
-  onSignOut: () => void;
-  onChangePassword: () => void;
-}
-
-export default function Chat({ onSignOut, onChangePassword }: ChatProps) {
+export default function Chat() {
   const { t } = useI18n();
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -152,11 +147,6 @@ export default function Chat({ onSignOut, onChangePassword }: ChatProps) {
         onDelete={removeConversation}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onSignOut={onSignOut}
-        onChangePassword={() => {
-          setSidebarOpen(false);
-          onChangePassword();
-        }}
       />
       <main className="chat">
         <div className="chat-mobilebar">

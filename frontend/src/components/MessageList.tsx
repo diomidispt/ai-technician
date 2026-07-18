@@ -6,10 +6,19 @@ import MessageBubble from "./MessageBubble";
 export default function MessageList({ messages }: { messages: UiMessage[] }) {
   const { t } = useI18n();
   const suggestions = [t.suggestion1, t.suggestion2, t.suggestion3];
-  const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Stick to the bottom only while the user is already near it — so they can scroll UP to read a
+  // long answer mid-stream without being yanked back down.
+  const stickRef = useRef(true);
+
+  const onScroll = () => {
+    const el = containerRef.current;
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = containerRef.current;
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   if (messages.length === 0) {
@@ -29,11 +38,10 @@ export default function MessageList({ messages }: { messages: UiMessage[] }) {
   }
 
   return (
-    <div className="message-list">
+    <div className="message-list" ref={containerRef} onScroll={onScroll}>
       {messages.map((m) => (
         <MessageBubble key={m.id} message={m} />
       ))}
-      <div ref={endRef} />
     </div>
   );
 }

@@ -10,9 +10,6 @@ interface Props {
   /** Mobile drawer state (ignored on desktop, where the sidebar is always visible). */
   open?: boolean;
   onClose?: () => void;
-  /** Account actions — shown in the drawer footer on mobile (they live in the header on desktop). */
-  onSignOut: () => void;
-  onChangePassword: () => void;
 }
 
 function relativeTime(iso: string, t: Strings): string {
@@ -35,8 +32,6 @@ export default function ConversationSidebar({
   onDelete,
   open = false,
   onClose,
-  onSignOut,
-  onChangePassword,
 }: Props) {
   const { t } = useI18n();
   return (
@@ -73,10 +68,6 @@ export default function ConversationSidebar({
               </div>
             ))
           )}
-        </div>
-        <div className="conv-account">
-          <button onClick={onChangePassword}>{t.changePassword}</button>
-          <button onClick={onSignOut}>{t.signOut}</button>
         </div>
       </aside>
     </>
