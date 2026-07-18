@@ -5,7 +5,6 @@ import MessageBubble from "./MessageBubble";
 
 export default function MessageList({ messages }: { messages: UiMessage[] }) {
   const { t } = useI18n();
-  const suggestions = [t.suggestion1, t.suggestion2, t.suggestion3];
   const containerRef = useRef<HTMLDivElement>(null);
   // Stick to the bottom only while the user is already near it — so they can scroll UP to read a
   // long answer mid-stream without being yanked back down.
@@ -26,12 +25,6 @@ export default function MessageList({ messages }: { messages: UiMessage[] }) {
       <div className="message-list empty">
         <div className="empty-state">
           <h1>{t.emptyTitle}</h1>
-          <p>{t.emptyDesc}</p>
-          <ul className="suggestions">
-            {suggestions.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
         </div>
       </div>
     );

@@ -72,13 +72,8 @@ const en = {
   noTextFound: "No readable text found in the photo — try a closer, clearer shot.",
   couldntReadImage: "Couldn't read the image",
 
-  // Empty state / suggestions
-  emptyTitle: "How can I help with your service call?",
-    emptyDesc:
-      "Ask a troubleshooting question. Answers come from the manuals in your library — with source citations. If it's not in the manuals, I'll say so.",
-    suggestion1: "Washer drum won't spin — where do I start?",
-    suggestion2: "What does error code E14 mean on the ironer?",
-    suggestion3: "Steam valve is leaking — safe shutdown steps?",
+  // Empty state
+  emptyTitle: "How can I help you with?",
 
   // Message bubble
   avatarYou: "You",
@@ -199,12 +194,7 @@ const el: Strings = {
   noTextFound: "Δεν βρέθηκε ευανάγνωστο κείμενο στη φωτογραφία — δοκιμάστε πιο κοντινή, καθαρή λήψη.",
   couldntReadImage: "Δεν ήταν δυνατή η ανάγνωση της εικόνας",
 
-  emptyTitle: "Πώς μπορώ να βοηθήσω με την κλήση σέρβις σας;",
-  emptyDesc:
-    "Κάντε μια ερώτηση αντιμετώπισης προβλήματος. Οι απαντήσεις προέρχονται από τα εγχειρίδια της βιβλιοθήκης σας — με παραπομπές πηγών. Αν δεν υπάρχει στα εγχειρίδια, θα σας το πω.",
-  suggestion1: "Ο κάδος του πλυντηρίου δεν γυρίζει — από πού ξεκινάω;",
-  suggestion2: "Τι σημαίνει ο κωδικός σφάλματος E14 στο σιδερωτήριο;",
-  suggestion3: "Διαρροή από τη βαλβίδα ατμού — βήματα ασφαλούς απενεργοποίησης;",
+  emptyTitle: "Πώς μπορώ να σας βοηθήσω;",
 
   avatarYou: "Εσείς",
   webBadge: "🌐 Από αναζήτηση στο web — επαληθεύστε πριν ενεργήσετε",
