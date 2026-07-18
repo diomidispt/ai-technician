@@ -74,11 +74,11 @@ const en = {
 
   // Empty state / suggestions
   emptyTitle: "How can I help with your service call?",
-  emptyDesc:
-    "Ask a troubleshooting question. Answers come from the manuals in your library — with source citations. If it's not in the manuals, I'll say so.",
-  suggestion1: "Washer drum won't spin — where do I start?",
-  suggestion2: "What does error code E14 mean on the ironer?",
-  suggestion3: "Steam valve is leaking — safe shutdown steps?",
+  // emptyDesc:
+  //   "Ask a troubleshooting question. Answers come from the manuals in your library — with source citations. If it's not in the manuals, I'll say so.",
+  // suggestion1: "Washer drum won't spin — where do I start?",
+  // suggestion2: "What does error code E14 mean on the ironer?",
+  // suggestion3: "Steam valve is leaking — safe shutdown steps?",
 
   // Message bubble
   avatarYou: "You",
