@@ -86,8 +86,12 @@ export default function App() {
                 <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
                 <div className="gear-menu">
                   <div className="gear-info">
-                    <b>{user.email}</b>
-                    <span className="gear-role">{roleLabel(user.role, t)}</span>
+                    <span>
+                      {t.usernameLabel} <b>{user.email}</b>
+                    </span>
+                    <span className="gear-role">
+                      {t.roleLabel} {roleLabel(user.role, t)}
+                    </span>
                   </div>
                   {model && (
                     <div className="gear-model">

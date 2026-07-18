@@ -296,8 +296,20 @@ function AuditPanel() {
   const [q, setQ] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
   const { error, wrap } = useAsyncError();
-  const refresh = useCallback(() => wrap(async () => setRows(await listAudit())), [wrap]);
+  const refresh = useCallback(
+    () =>
+      wrap(async () => {
+        setRefreshing(true);
+        try {
+          setRows(await listAudit());
+        } finally {
+          setRefreshing(false);
+        }
+      }),
+    [wrap],
+  );
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -328,7 +340,6 @@ function AuditPanel() {
           <option value="internal">internal</option>
           <option value="web">web</option>
           <option value="chat">chat</option>
-          <option value="none">none</option>
         </select>
         <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
           <option value="all">{t.allUsers}</option>
@@ -338,8 +349,8 @@ function AuditPanel() {
             </option>
           ))}
         </select>
-        <button className="refresh-btn" onClick={refresh}>
-          {t.refresh}
+        <button className="refresh-btn" onClick={refresh} disabled={refreshing}>
+          {refreshing ? "…" : t.refresh}
         </button>
         <span className="filter-count">
           {shown.length} / {rows.length}

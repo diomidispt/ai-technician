@@ -131,13 +131,13 @@ body {
   position: relative;
 }
 .gear-btn {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--bg-subtle);
   color: var(--text);
-  font-size: 16px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
 }
