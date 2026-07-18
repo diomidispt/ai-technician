@@ -1,9 +1,13 @@
 """Data access for documents, chunks, and conversations. All SQL lives here — never in handlers."""
 
+import re
+
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Chunk, Conversation, Document, Message
+
+_TOKEN = re.compile(r"\w+")
 
 
 def upsert_document(session: Session, filename: str, title: str = "") -> Document:
@@ -90,9 +94,18 @@ def keyword_search(session: Session, query_text: str, top_k: int) -> list[Retrie
 
     Uses the `simple` config (no stemming) to keep codes/part numbers/Greek intact, matching the
     GIN index in models.py. Returns chunks with `distance=None` (keyword hits carry no vector).
+
+    Builds an OR-of-tokens tsquery, not `plainto_tsquery`'s implicit AND: a natural question
+    ("what maintenance should I do daily?") almost never has every one of its words verbatim in
+    a single chunk, so an AND query silently returns zero hits for ordinary phrasing — which was
+    measured to let hybrid retrieval collapse to vector-only exactly when keyword matching would
+    have mattered most (disambiguating between two similar manuals by an exact distinctive term).
     """
+    tokens = _TOKEN.findall(query_text.lower())
+    if not tokens:
+        return []
     tsvector = func.to_tsvector("simple", Chunk.content)
-    tsquery = func.plainto_tsquery("simple", query_text)
+    tsquery = func.to_tsquery("simple", " | ".join(tokens))
     rank = func.ts_rank(tsvector, tsquery).label("rank")
     rows = session.execute(
         select(Chunk.id, Chunk.content, Document.filename, Chunk.page, Chunk.section)

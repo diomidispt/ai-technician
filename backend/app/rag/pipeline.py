@@ -102,24 +102,26 @@ def _select_relevant(
     return near[: settings.retrieval_top_k]
 
 
-REWRITE_PROMPT = (
-    "You rewrite a technician's latest message into a single standalone search query for a "
-    "manual database, using the conversation for context. Resolve pronouns and implicit "
-    "references (equipment models, error codes, parts). Keep the original language. "
-    "Output ONLY the rewritten query — no preamble, no quotes, no explanation."
-)
-
-# The router decides, per message, whether to search the manuals or just chat back. This is the
-# "does this even need the PDFs?" step — without it, greetings get answered from random chunks.
-ROUTER_PROMPT = (
-    "You route messages for a support assistant for Jensen industrial laundry equipment.\n"
-    "Classify the user's LATEST message as exactly one word:\n"
-    "- TECHNICAL: a troubleshooting, repair, maintenance, product, error-code, part, or how-to "
-    "question about the equipment — including short follow-ups that refer to a model, part, or the "
-    "prior technical topic (e.g. 'and the WE110?').\n"
-    "- CHITCHAT: greetings, thanks, small talk, or questions about you/the assistant "
+# One call does both jobs: "does this even need the PDFs?" (router — without it, greetings get
+# answered from random chunks) and, for technical follow-ups, rewriting into a standalone
+# retrieval query (e.g. "and the WE110?" -> "WE110 <prior topic>"). Merged into a single call on
+# the answer model (rather than a router call + a separate rewrite call on a different small
+# model) so routing stays multilingual-accurate — a small English-tuned model was found to
+# misroute Greek technical questions as chitchat — and each message costs one round trip and one
+# resident model instead of two.
+ROUTE_PROMPT = (
+    "You route a technician's LATEST message for a support assistant for Jensen industrial "
+    "laundry equipment, and rewrite it into a standalone search query for the manual database.\n"
+    'Return ONLY compact JSON, no other text: {"intent": "TECHNICAL"|"CHITCHAT", '
+    '"query": "<standalone search query>"}\n'
+    "TECHNICAL: a troubleshooting, repair, maintenance, product, error-code, part, or how-to "
+    "question about the equipment — including short follow-ups that refer to a model, part, or "
+    "the prior technical topic (e.g. 'and the WE110?').\n"
+    "CHITCHAT: greetings, thanks, small talk, or questions about you/the assistant "
     "(e.g. 'hello', 'thanks', 'who are you?').\n"
-    "Reply with ONLY the single word TECHNICAL or CHITCHAT."
+    "For the query field: resolve pronouns and implicit references (equipment models, error "
+    "codes, parts) using the conversation. Keep the original language. For CHITCHAT, set query "
+    "to the latest message unchanged."
 )
 
 CHITCHAT_PROMPT = """You are the Jensen technical support assistant for field technicians \
@@ -153,59 +155,53 @@ def _recent_turns(prior: list[dict]) -> list[dict]:
     return turns[-settings.history_max_turns :]
 
 
-async def _rewrite_query(prior: list[dict], question: str) -> str:
-    """Rewrite a follow-up into a standalone retrieval query. Falls back to the raw question."""
-    turns = _recent_turns(prior)
-    if not turns or not settings.query_rewrite_enabled:
-        return question
-    convo = "\n".join(f"{m['role']}: {m['content']}" for m in turns)
-    messages = [
-        {"role": "system", "content": REWRITE_PROMPT},
-        {
-            "role": "user",
-            "content": f"Conversation so far:\n{convo}\n\nLatest message: {question}\n\n"
-            "Standalone search query:",
-        },
-    ]
-    try:
-        rewritten = (
-            (await ollama_client.chat(messages, model=settings.rewrite_model)).strip().strip('"')
-        )
-    except Exception:  # model missing/network hiccup — retrieval still works on the raw question.
-        return question
-    # Guard against an empty or runaway (chatty) rewrite.
-    return rewritten if rewritten and len(rewritten) <= 300 else question
+def _parse_route(text: str, question: str) -> tuple[str, str]:
+    """Parse the router+rewrite JSON reply into (intent, query).
 
-
-def _parse_intent(text: str) -> str:
-    """Map a router reply to 'chitchat' or 'technical'. Unknown -> 'technical' (fail-open)."""
-    upper = (text or "").upper()
-    if "CHITCHAT" in upper:
-        return "chitchat"
-    return "technical"  # default to searching, so a real question is never dropped
-
-
-async def _classify_intent(prior: list[dict], question: str) -> str:
-    """Decide whether the message needs the manuals ('technical') or is small talk ('chitchat').
-
-    A cheap one-word LLM call on the (multilingual) answer model. Recent turns disambiguate short
-    follow-ups. Fails open to 'technical' so a real question is never sent to chit-chat by mistake.
+    Fails open to ('technical', question) on any hiccup — malformed JSON, missing fields, or a
+    runaway (chatty) reply — so a real question is never dropped or left unsearchable.
     """
-    if not settings.intent_router_enabled:
-        return "technical"
-    turns = _recent_turns(prior)[-2:]
-    convo = "".join(f"{m['role']}: {m['content']}\n" for m in turns)
-    user = (f"Recent conversation:\n{convo}\n" if convo else "") + (
-        f"Latest message: {question}\n\nOne word (TECHNICAL or CHITCHAT):"
+    try:
+        data = json.loads(text.strip().strip("`"))
+        intent = "chitchat" if str(data.get("intent", "")).upper() == "CHITCHAT" else "technical"
+        query = data.get("query")
+        if not isinstance(query, str) or not query.strip() or len(query) > 300:
+            query = question
+        return intent, query
+    except Exception:
+        return "technical", question
+
+
+async def _route_and_rewrite(prior: list[dict], question: str) -> tuple[str, str]:
+    """One LLM call: classify the message ('technical'/'chitchat') AND, for follow-ups, rewrite it
+    into a standalone retrieval query — replacing two separate calls to two different local
+    models with one. Recent turns disambiguate short follow-ups and resolve references.
+    """
+    if not settings.intent_router_enabled and not settings.query_rewrite_enabled:
+        return "technical", question
+    turns = _recent_turns(prior)
+    convo = "\n".join(f"{m['role']}: {m['content']}" for m in turns)
+    user = (f"Conversation so far:\n{convo}\n\n" if convo else "") + (
+        f"Latest message: {question}\n\nJSON:"
     )
     messages = [
-        {"role": "system", "content": ROUTER_PROMPT},
+        {"role": "system", "content": ROUTE_PROMPT},
         {"role": "user", "content": user},
     ]
     try:
-        return _parse_intent(await ollama_client.chat(messages))
-    except Exception:  # router hiccup — default to searching the manuals.
-        return "technical"
+        reply = await ollama_client.chat(messages)
+    except Exception:  # router/rewrite hiccup — default to searching the manuals as asked.
+        return "technical", question
+    intent, query = _parse_route(reply, question)
+    if not settings.intent_router_enabled:
+        intent = "technical"
+    # Only trust the rewrite when there's a conversation to resolve. On a first message there's
+    # nothing to disambiguate, and paraphrasing tends to genericize a specific question (measured:
+    # it can push embedding distance from a well-matched chunk to a worse one) — so the original
+    # wording wins by default.
+    if not settings.query_rewrite_enabled or not turns:
+        query = question
+    return intent, query
 
 
 def _sse(event: str, payload: dict) -> dict:
@@ -230,10 +226,12 @@ async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
     prior, question = _split_history(history)
     language = _detect_language(question)
 
-    # 0. Intent router: does this message even need the manuals? Greetings / small talk get a
-    #    natural reply with NO retrieval and NO history rewrite — so "hello" never gets answered
-    #    from a random PDF chunk. Technical questions fall through to the retrieval flow below.
-    if await _classify_intent(prior, question) == "chitchat":
+    # 0. Router + rewrite in one call: does this message even need the manuals, and if so, what's
+    #    its standalone retrieval query? Greetings / small talk get a natural reply with NO
+    #    retrieval — so "hello" never gets answered from a random PDF chunk. Technical questions
+    #    fall through to the retrieval flow below with a history-aware search query already in hand.
+    intent, search_query = await _route_and_rewrite(prior, question)
+    if intent == "chitchat":
         rule = "Reply in Greek." if language == "Greek" else "Reply in English."
         messages = [
             {"role": "system", "content": CHITCHAT_PROMPT.format(language_rule=rule)},
@@ -246,10 +244,8 @@ async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
         yield _sse("done", {"source": "chat", "citations": []})
         return
 
-    # 1. Internal library first. A follow-up is rewritten to a standalone query so retrieval isn't
-    #    blind to context. Vector (meaning) + keyword (exact tokens); the sufficiency gate stays
-    #    vector-based, RRF just re-orders the passing chunks.
-    search_query = await _rewrite_query(prior, question)
+    # 1. Internal library first. Vector (meaning) + keyword (exact tokens); the sufficiency gate
+    #    stays vector-based, RRF just re-orders the passing chunks.
     query_embedding = await ollama_client.embed(search_query)
     session = SessionLocal()
     try:

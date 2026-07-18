@@ -131,7 +131,8 @@ def main(argv: list[str]) -> int:
         print(f"not a folder: {folder}")
         return 2
 
-    pdfs = sorted(folder.glob("*.pdf"))
+    # Case-insensitive: scanned/exported PDFs often arrive as ".PDF" (e.g. from Windows/CAD tools).
+    pdfs = sorted({p for pattern in ("*.pdf", "*.PDF") for p in folder.glob(pattern)})
     if not pdfs:
         print(f"no PDFs found in {folder}")
         return 1

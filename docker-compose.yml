@@ -3,8 +3,7 @@
 # The LLM + embeddings run in **Ollama on your Mac host** (not in Docker) — Metal-accelerated
 # and free. The backend container reaches it via host.docker.internal:11434.
 # Start Ollama first:  ollama serve
-#   ollama pull aya-expanse:8b bge-m3    (answers + embeddings)
-#   ollama pull llama3.2:3b              (optional: fast model for the multi-turn query rewrite)
+#   ollama pull aya-expanse:8b bge-m3    (answers + embeddings; also routing + query rewrite)
 
 services:
   backend:
@@ -20,7 +19,6 @@ services:
       ANSWER_MODEL: "aya-expanse:8b"  # multilingual (Greek+English); llama3.2:3b = faster/English
       EMBED_MODEL: "bge-m3"          # multilingual embeddings (cross-lingual retrieval)
       EMBED_DIM: "1024"             # bge-m3 dimension (must match the embeddings)
-      REWRITE_MODEL: "llama3.2:3b"   # small/fast model for the multi-turn query rewrite
       OLLAMA_KEEP_ALIVE: "30m"       # keep models resident between questions (no reload lag)
     volumes:
       - ./backend/app:/app/app

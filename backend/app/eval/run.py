@@ -20,7 +20,7 @@ from app.db.repository import RetrievedChunk, _rrf_fuse, keyword_search, vector_
 from app.db.session import SessionLocal, init_db
 from app.eval.eval_set import EVAL_SET, EvalItem
 from app.rag import ollama_client
-from app.rag.pipeline import _classify_intent, _select_relevant
+from app.rag.pipeline import _route_and_rewrite, _select_relevant
 
 # Pass thresholds (overall).
 MIN_INTERNAL_KEYWORD_HIT = 0.60
@@ -40,7 +40,7 @@ def _first_match_rank(chunks: list[RetrievedChunk], keywords: list[str]) -> int 
 def _evaluate(item: EvalItem) -> dict:
     # Intent routing first: chit-chat items must route to chit-chat; everything else must be
     # classified technical (and not diverted away from the manuals).
-    intent = asyncio.run(_classify_intent([], item.question))
+    intent, _query = asyncio.run(_route_and_rewrite([], item.question))
     if item.source == "chat":
         return {
             "keyword_hit": None,

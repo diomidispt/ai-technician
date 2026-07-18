@@ -22,6 +22,12 @@ _PARAGRAPH_SPLIT = re.compile(r"\n+")
 # A numbered heading like "5", "5.2", "5.2.1" followed by a short title.
 _NUMBERED_HEADING = re.compile(r"^\d+(?:\.\d+)*\.?\s+\S.{0,80}$")
 
+# Running page header/footer, not a real heading: "12 | Maintenance" (chapter marker) or
+# "132 / 276 5S0049_Instructions" (page-of-total + filename). Both repeat on every page of a
+# section/chapter and would otherwise be misdetected as the heading in effect, orphaning the
+# real content under a wrong, less specific label.
+_RUNNING_HEADER_FOOTER = re.compile(r"^\d+\s*[|/]\s")
+
 
 @dataclass
 class TextChunk:
@@ -35,6 +41,8 @@ def _is_heading(line: str) -> bool:
     """Heuristic: a numbered heading, or a short ALL-CAPS line (a section title)."""
     line = line.strip()
     if not line or len(line) > 90:
+        return False
+    if _RUNNING_HEADER_FOOTER.match(line):
         return False
     if _NUMBERED_HEADING.match(line):
         return True

@@ -4,6 +4,8 @@ The full end-to-end RAG flow (embed -> retrieve -> generate -> cite) is exercise
 via `make ingest` + the running stack, since it needs the local DB and model server.
 """
 
+import json
+
 from fastapi.testclient import TestClient
 
 from app.config import settings
@@ -14,7 +16,7 @@ from app.rag.pipeline import (
     _build_context,
     _citations,
     _detect_language,
-    _parse_intent,
+    _parse_route,
     _recent_turns,
     _select_relevant,
     _split_history,
@@ -134,15 +136,27 @@ def test_rrf_fuse_respects_top_k():
     assert len(fused) == 2
 
 
-def test_parse_intent():
-    assert _parse_intent("CHITCHAT") == "chitchat"
-    assert _parse_intent("chitchat.") == "chitchat"
-    assert _parse_intent("The answer is CHITCHAT") == "chitchat"
-    assert _parse_intent("TECHNICAL") == "technical"
-    assert _parse_intent("technical — needs the manual") == "technical"
-    # Unknown / empty -> fail open to technical (never drop a real question).
-    assert _parse_intent("") == "technical"
-    assert _parse_intent("banana") == "technical"
+def test_parse_route():
+    q = "fallback question"
+    assert _parse_route('{"intent": "CHITCHAT", "query": "hello"}', q) == ("chitchat", "hello")
+    assert _parse_route('{"intent": "TECHNICAL", "query": "WE110 E4"}', q) == (
+        "technical",
+        "WE110 E4",
+    )
+    # Markdown-fenced JSON (some models wrap replies in ``` ```).
+    assert _parse_route('```{"intent": "CHITCHAT", "query": "hi"}```', q) == ("chitchat", "hi")
+    # Missing/blank/oversized query -> fall back to the raw question.
+    assert _parse_route('{"intent": "TECHNICAL"}', q) == ("technical", q)
+    assert _parse_route('{"intent": "TECHNICAL", "query": "  "}', q) == ("technical", q)
+    assert _parse_route(json.dumps({"intent": "TECHNICAL", "query": "x" * 301}), q) == (
+        "technical",
+        q,
+    )
+    # Unknown intent / malformed JSON / empty -> fail open to technical (never drop a real
+    # question).
+    assert _parse_route('{"intent": "banana", "query": "x"}', q) == ("technical", "x")
+    assert _parse_route("not json", q) == ("technical", q)
+    assert _parse_route("", q) == ("technical", q)
 
 
 def test_make_title():

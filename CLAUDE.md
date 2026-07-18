@@ -86,8 +86,10 @@ RAG core (retrieve/rerank/synthesize/citations) → web fallback → chat UI →
   measured, not eyeballed.
 - **Model** — Ollama ($0, offline): `aya-expanse:8b` answers + `bge-m3` embeddings (multilingual),
   behind `app/rag/ollama_client.py` — swappable for Claude/Bedrock later. Models kept resident
-  (`keep_alive`), answer length capped, and the multi-turn query-rewrite runs on a small fast model
-  (`llama3.2:3b`) for latency — all without changing answer quality.
+  (`keep_alive`), answer length capped. Intent routing + query rewrite share **one** LLM call on
+  the answer model (`_route_and_rewrite` in `pipeline.py`) instead of two calls on two different
+  models — a smaller English-tuned model was found to misroute Greek technical questions as
+  chitchat, and one shared model call means one round trip and no swapping between resident models.
 
 Still to build for cloud: real Cognito, RDS (vs local Postgres), S3+Textract ingestion (vs
 folder/pypdf), Terraform infra + deploy. The app logic doesn't change — only the backing services.

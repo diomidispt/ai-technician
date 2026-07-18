@@ -26,9 +26,6 @@ class Settings(BaseSettings):
     answer_model: str = "aya-expanse:8b"  # multilingual; good Greek (llama3.2:3b = faster English)
     embed_model: str = "bge-m3"  # multilingual embeddings -> cross-lingual retrieval
     embed_dim: int = 1024  # bge-m3 output dimension (must match the embedding model)
-    # Small/fast model for the multi-turn query rewrite (a throwaway one-liner, doesn't need the
-    # big model). Falls back to the raw question if this model isn't pulled — see pipeline.
-    rewrite_model: str = "llama3.2:3b"
     # Keep models resident between requests so there's no multi-second reload lag on the next
     # question. Sent on every Ollama call. "30m" = stay loaded 30 min after last use.
     ollama_keep_alive: str = "30m"
@@ -53,13 +50,16 @@ class Settings(BaseSettings):
 
     # --- Conversation memory (history-aware retrieval) ---
     # Rewrite a follow-up ("and for the WE110?") into a standalone search query using recent turns,
-    # so retrieval isn't blind to context. One fast LLM call; falls back to the raw question.
+    # so retrieval isn't blind to context. Falls back to the raw question. Runs in the same LLM
+    # call as the intent router (see below) — one round trip does both jobs.
     query_rewrite_enabled: bool = True
     history_max_turns: int = 6  # most recent messages passed to the model for coherence
 
-    # Intent router: a one-word LLM call up front decides whether a message needs the manuals
-    # (technical) or is small talk (greeting/thanks/"who are you"). Chit-chat gets a natural reply
-    # with no retrieval — so greetings aren't answered from random chunks. Uses the answer model.
+    # Intent router: decides whether a message needs the manuals (technical) or is small talk
+    # (greeting/thanks/"who are you"). Chit-chat gets a natural reply with no retrieval — so
+    # greetings aren't answered from random chunks. Uses the answer model (kept off the small
+    # rewrite model — it was found to misroute Greek technical questions as chitchat), and shares
+    # one call with the query rewrite above (see `_route_and_rewrite` in pipeline.py).
     intent_router_enabled: bool = True
 
     # --- Conversation history (persisted per-user threads behind the sidebar) ---
