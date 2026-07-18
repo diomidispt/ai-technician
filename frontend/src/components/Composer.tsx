@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { extractImageText } from "../api/vision";
+import { useI18n } from "../i18n";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 
 interface Props {
@@ -21,6 +22,7 @@ const browserDefaultLang = () =>
     : "en-US";
 
 export default function Composer({ onSend, disabled }: Props) {
+  const { t } = useI18n();
   const [text, setText] = useState("");
   const [voiceLang, setVoiceLang] = useState(browserDefaultLang);
   // Browsers can't read the OS keyboard, so we follow the *typed* script instead — until the
@@ -60,10 +62,10 @@ export default function Composer({ onSend, disabled }: Props) {
       if (extracted) {
         setText((prev) => (prev ? prev.trimEnd() + " " : "") + extracted);
       } else {
-        setImageError("No readable text found in the photo — try a closer, clearer shot.");
+        setImageError(t.noTextFound);
       }
     } catch (err) {
-      setImageError(err instanceof Error ? err.message : "Couldn't read the image");
+      setImageError(err instanceof Error ? err.message : t.couldntReadImage);
     } finally {
       setReading(false);
     }
@@ -108,7 +110,7 @@ export default function Composer({ onSend, disabled }: Props) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={listening ? "Listening… speak now" : "Ask a troubleshooting question…"}
+          placeholder={listening ? t.listening : t.askPlaceholder}
           rows={1}
           autoFocus
         />
@@ -126,7 +128,7 @@ export default function Composer({ onSend, disabled }: Props) {
                       setVoiceLang(l.code);
                     }}
                     disabled={listening}
-                    title={`Recognize speech in ${l.label}`}
+                    title={l.label}
                   >
                     {l.label}
                   </button>
@@ -136,8 +138,8 @@ export default function Composer({ onSend, disabled }: Props) {
                 type="button"
                 className={`mic ${listening ? "recording" : ""}`}
                 onClick={toggleMic}
-                aria-label={listening ? "Stop dictation" : "Dictate your question"}
-                title={listening ? "Stop dictation" : "Speak your question"}
+                aria-label={listening ? t.micStop : t.micStart}
+                title={listening ? t.micStop : t.micStart}
               >
                 {listening ? "■" : "🎤"}
               </button>
@@ -157,8 +159,8 @@ export default function Composer({ onSend, disabled }: Props) {
                 className="camera"
                 onClick={() => fileRef.current?.click()}
                 disabled={reading || disabled}
-                aria-label="Add a photo of the machine display"
-                title="Take or choose a photo of the machine display (reads the error/code)"
+                aria-label={t.cameraAria}
+                title={t.cameraTitle}
               >
                 {reading ? "…" : "📷"}
               </button>
@@ -175,7 +177,7 @@ export default function Composer({ onSend, disabled }: Props) {
         </div>
       </div>
       {imageError && <p className="composer-error">{imageError}</p>}
-      {reading && <p className="composer-hint">Reading the photo…</p>}
+      {reading && <p className="composer-hint">{t.readingPhoto}</p>}
     </div>
   );
 }

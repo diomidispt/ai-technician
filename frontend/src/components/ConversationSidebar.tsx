@@ -1,4 +1,5 @@
 import type { ConversationSummary } from "../api/conversations";
+import { useI18n, type Strings } from "../i18n";
 
 interface Props {
   conversations: ConversationSummary[];
@@ -14,15 +15,15 @@ interface Props {
   onChangePassword: () => void;
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: Strings): string {
   const then = new Date(iso).getTime();
   const mins = Math.round((Date.now() - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
+  if (mins < 1) return t.timeJustNow;
+  if (mins < 60) return `${mins}${t.timeMin}`;
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
+  if (hrs < 24) return `${hrs}${t.timeHour}`;
   const days = Math.round(hrs / 24);
-  if (days < 7) return `${days}d`;
+  if (days < 7) return `${days}${t.timeDay}`;
   return new Date(iso).toLocaleDateString();
 }
 
@@ -37,16 +38,17 @@ export default function ConversationSidebar({
   onSignOut,
   onChangePassword,
 }: Props) {
+  const { t } = useI18n();
   return (
     <>
       {open && <div className="conv-backdrop" onClick={onClose} />}
       <aside className={`conv-sidebar ${open ? "open" : ""}`}>
         <button className="conv-new" onClick={onNew}>
-          + New chat
+          {t.newChat}
         </button>
         <div className="conv-list">
           {conversations.length === 0 ? (
-            <p className="conv-empty">No conversations yet.</p>
+            <p className="conv-empty">{t.noConversations}</p>
           ) : (
             conversations.map((c) => (
               <div
@@ -56,11 +58,11 @@ export default function ConversationSidebar({
                 title={c.title}
               >
                 <span className="conv-title">{c.title}</span>
-                <span className="conv-time">{relativeTime(c.updated_at)}</span>
+                <span className="conv-time">{relativeTime(c.updated_at, t)}</span>
                 <button
                   className="conv-del"
-                  aria-label="Delete conversation"
-                  title="Delete"
+                  aria-label={t.deleteConversation}
+                  title={t.deleteConversation}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(c.id);
@@ -73,8 +75,8 @@ export default function ConversationSidebar({
           )}
         </div>
         <div className="conv-account">
-          <button onClick={onChangePassword}>Change password</button>
-          <button onClick={onSignOut}>Sign out</button>
+          <button onClick={onChangePassword}>{t.changePassword}</button>
+          <button onClick={onSignOut}>{t.signOut}</button>
         </div>
       </aside>
     </>

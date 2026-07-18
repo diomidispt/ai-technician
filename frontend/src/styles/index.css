@@ -38,6 +38,12 @@ body,
   margin: 0;
 }
 
+/* Stop iOS Safari from auto-inflating text in tall flex layouts (the "looks zoomed" effect). */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -98,6 +104,19 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.lang-toggle {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .demo-badge {
@@ -928,6 +947,14 @@ body {
    Mobile (phones / narrow screens). Placed last so it overrides the base rules.
    ========================================================================== */
 @media (max-width: 768px) {
+  /* Slightly smaller base scale so the app doesn't feel zoomed-in on a phone. */
+  body {
+    font-size: 14px;
+  }
+  .empty-state h1 {
+    font-size: 20px;
+  }
+
   /* Header: keep it to the essentials so it doesn't overflow a phone. */
   .app-header {
     flex-wrap: wrap;

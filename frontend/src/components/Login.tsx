@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useI18n } from "../i18n";
 
 export default function Login() {
   const { login } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,7 +17,7 @@ export default function Login() {
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : t.loginFailed);
     } finally {
       setBusy(false);
     }
@@ -26,15 +28,15 @@ export default function Login() {
       <form className="login-card" onSubmit={onSubmit}>
         <div className="brand login-brand">
           <span className="brand-mark">J</span>
-          <strong>Jensen AI Technical Assistant</strong>
+          <strong>{t.appName}</strong>
         </div>
-        <p className="login-sub">Sign in to access the AI technical assistant.</p>
+        <p className="login-sub">{t.loginSubtitle}</p>
 
         <label>
-          Username
+          {t.username}
           <input
             type="text"
-            placeholder="admin or technician"
+            placeholder={t.usernamePlaceholder}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoFocus
@@ -42,7 +44,7 @@ export default function Login() {
           />
         </label>
         <label>
-          Password
+          {t.password}
           <input
             type="password"
             value={password}
@@ -54,7 +56,7 @@ export default function Login() {
         {error && <p className="login-error">{error}</p>}
 
         <button type="submit" className="login-btn" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? t.signingIn : t.signIn}
         </button>
       </form>
     </div>

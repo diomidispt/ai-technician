@@ -4,11 +4,13 @@ import AdminConsole from "./components/AdminConsole";
 import ChangePassword from "./components/ChangePassword";
 import Chat from "./components/Chat";
 import Login from "./components/Login";
+import { roleLabel, useI18n } from "./i18n";
 
 type View = "chat" | "admin";
 
 export default function App() {
   const { user, loading, logout } = useAuth();
+  const { t, lang, toggle } = useI18n();
   const [view, setView] = useState<View>("chat");
   const [model, setModel] = useState("");
   const [showChangePw, setShowChangePw] = useState(false);
@@ -26,7 +28,7 @@ export default function App() {
     setView("chat");
   }, [user?.email]);
 
-  if (loading) return <div className="app-loading">Loading…</div>;
+  if (loading) return <div className="app-loading">{t.loading}</div>;
   if (!user) return <Login />;
 
   // Forced reset (fresh account / admin reset) blocks the app until the password is changed.
@@ -41,8 +43,8 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark">J</span>
           <div className="brand-text">
-            <strong>Jensen AI Technical Assistant</strong>
-            <span className="brand-sub">Field Service Industrial Laundry Equipment</span>
+            <strong>{t.appName}</strong>
+            <span className="brand-sub">{t.brandSub}</span>
           </div>
         </div>
 
@@ -50,30 +52,40 @@ export default function App() {
         {user.role === "admin" && (
           <nav className="app-nav">
             <button className={view === "chat" ? "active" : ""} onClick={() => setView("chat")}>
-              Chat
+              {t.navChat}
             </button>
             <button className={view === "admin" ? "active" : ""} onClick={() => setView("admin")}>
-              Admin
+              {t.navAdmin}
             </button>
           </nav>
         )}
 
         <div className="header-meta">
           {model && (
-            <span className="model-pill" title="Local model answering (via Ollama)">
-              <span className="model-dot" /> AI Model: {model}
+            <span className="model-pill" title="Ollama">
+              <span className="model-dot" /> {t.aiModel} {model}
             </span>
           )}
           <span className="user-chip">
-            Username: <b>{user.email}</b> · Role: <b>{user.role}</b>
+            {t.usernameLabel} <b>{user.email}</b> · {t.roleLabel} <b>{roleLabel(user.role, t)}</b>
           </span>
           <button className="logout-btn" onClick={() => setShowChangePw(true)}>
-            Change password
+            {t.changePassword}
           </button>
           <button className="logout-btn" onClick={logout}>
-            Sign out
+            {t.signOut}
           </button>
         </div>
+
+        {/* Language toggle — stays visible on mobile (where header-meta is hidden). */}
+        <button
+          className="lang-toggle"
+          onClick={toggle}
+          title="Switch language / Αλλαγή γλώσσας"
+          aria-label="Switch language"
+        >
+          🌐 {lang === "el" ? "EN" : "ΕΛ"}
+        </button>
       </header>
 
       {showAdmin ? (

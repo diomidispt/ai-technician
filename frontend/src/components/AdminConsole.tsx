@@ -12,17 +12,19 @@ import {
   updateUser,
   uploadDocument,
 } from "../api/admin";
+import { roleLabel, useI18n } from "../i18n";
 
 type Tab = "users" | "documents" | "audit";
 
 export default function AdminConsole() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("users");
   return (
     <div className="admin">
       <div className="admin-tabs">
-        {(["users", "documents", "audit"] as Tab[]).map((t) => (
-          <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
-            {t === "users" ? "Users" : t === "documents" ? "Library" : "Audit log"}
+        {(["users", "documents", "audit"] as Tab[]).map((key) => (
+          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>
+            {key === "users" ? t.tabUsers : key === "documents" ? t.tabLibrary : t.tabAudit}
           </button>
         ))}
       </div>
@@ -50,6 +52,7 @@ function useAsyncError() {
 
 // ---------------- Users ----------------
 function UsersPanel() {
+  const { t } = useI18n();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,46 +93,48 @@ function UsersPanel() {
 
   return (
     <div>
-      <h3>Users &amp; access</h3>
-      <p className="admin-note">
-        Mirrors Cognito: roles, instant disable (revocation), and an access-expiry date.
-      </p>
+      <h3>{t.usersHeading}</h3>
+      <p className="admin-note">{t.usersNote}</p>
       {error && <p className="login-error">{error}</p>}
 
       <div className="create-user">
-        <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input
-          placeholder="password"
+          placeholder={t.emailPlaceholder}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          placeholder={t.passwordPlaceholder}
           type="text"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         <select value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="technician">technician</option>
-          <option value="admin">admin</option>
+          <option value="technician">{t.roleTechnician}</option>
+          <option value="admin">{t.roleAdmin}</option>
         </select>
         <input
           type="date"
-          title="Access expiry (optional)"
+          title={t.accessExpiryTitle}
           value={expires}
           onChange={(e) => setExpires(e.target.value)}
         />
         <button onClick={onCreate} disabled={!email || !password}>
-          Add user
+          {t.addUser}
         </button>
       </div>
 
       <div className="admin-filters">
-        <input placeholder="Search email…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder={t.searchEmail} value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-          <option value="all">All roles</option>
-          <option value="admin">admin</option>
-          <option value="technician">technician</option>
+          <option value="all">{t.allRoles}</option>
+          <option value="admin">{t.roleAdmin}</option>
+          <option value="technician">{t.roleTechnician}</option>
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="all">All statuses</option>
-          <option value="active">active</option>
-          <option value="disabled">disabled</option>
+          <option value="all">{t.allStatuses}</option>
+          <option value="active">{t.statusActive}</option>
+          <option value="disabled">{t.statusDisabled}</option>
         </select>
         <span className="filter-count">
           {shown.length} / {users.length}
@@ -139,10 +144,10 @@ function UsersPanel() {
       <table className="admin-table">
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Expires</th>
+            <th>{t.colEmail}</th>
+            <th>{t.colRole}</th>
+            <th>{t.colStatus}</th>
+            <th>{t.colExpires}</th>
             <th></th>
           </tr>
         </thead>
@@ -150,10 +155,10 @@ function UsersPanel() {
           {shown.map((u) => (
             <tr key={u.id} className={u.is_active ? "" : "disabled-row"}>
               <td>{u.email}</td>
-              <td>{u.role}</td>
+              <td>{roleLabel(u.role, t)}</td>
               <td>
-                {u.is_active ? "active" : "disabled"}
-                {u.must_change_password && <span className="reset-badge">must reset</span>}
+                {u.is_active ? t.statusActive : t.statusDisabled}
+                {u.must_change_password && <span className="reset-badge">{t.mustReset}</span>}
               </td>
               <td>{u.access_expires ? u.access_expires.slice(0, 10) : "—"}</td>
               <td className="row-actions">
@@ -165,13 +170,13 @@ function UsersPanel() {
                     })
                   }
                 >
-                  {u.is_active ? "Disable" : "Enable"}
+                  {u.is_active ? t.disable : t.enable}
                 </button>
                 <button
                   onClick={() =>
                     wrap(async () => {
                       const temp = window.prompt(
-                        `Set a temporary password for ${u.email}.\nThey'll be forced to change it at next sign-in.`,
+                        `${t.resetPromptTitle} ${u.email}.\n${t.resetPromptHint}`,
                       );
                       if (!temp) return;
                       await updateUser(u.id, { password: temp, must_change_password: true });
@@ -179,7 +184,7 @@ function UsersPanel() {
                     })
                   }
                 >
-                  Reset password
+                  {t.resetPassword}
                 </button>
                 <button
                   className="danger"
@@ -190,7 +195,7 @@ function UsersPanel() {
                     })
                   }
                 >
-                  Delete
+                  {t.delete}
                 </button>
               </td>
             </tr>
@@ -203,6 +208,7 @@ function UsersPanel() {
 
 // ---------------- Documents ----------------
 function DocumentsPanel() {
+  const { t } = useI18n();
   const [docs, setDocs] = useState<LibraryDoc[]>([]);
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
@@ -219,10 +225,10 @@ function DocumentsPanel() {
   const onUpload = () => {
     const file = fileRef.current?.files?.[0];
     if (!file) return;
-    setStatus(`Uploading & ingesting “${file.name}” — this can take a minute…`);
+    setStatus(`${t.uploadingPrefix} “${file.name}” ${t.uploadingSuffix}`);
     wrap(async () => {
       const doc = await uploadDocument(file);
-      setStatus(`Ingested “${doc.filename}” (${doc.chunks} chunks).`);
+      setStatus(`${t.ingestedPrefix} “${doc.filename}” (${doc.chunks} ${t.chunksWord}).`);
       if (fileRef.current) fileRef.current.value = "";
       await refresh();
     }).finally(() => setTimeout(() => setStatus(""), 6000));
@@ -230,21 +236,18 @@ function DocumentsPanel() {
 
   return (
     <div>
-      <h3>Document library</h3>
-      <p className="admin-note">
-        Upload PDF manuals — they’re parsed, chunked, embedded, and searchable. The local
-        stand-in for the S3 / Drive drop.
-      </p>
+      <h3>{t.docsHeading}</h3>
+      <p className="admin-note">{t.docsNote}</p>
       {error && <p className="login-error">{error}</p>}
 
       <div className="upload-row">
         <input ref={fileRef} type="file" accept="application/pdf" />
-        <button onClick={onUpload}>Upload &amp; ingest</button>
+        <button onClick={onUpload}>{t.uploadIngest}</button>
       </div>
       {status && <p className="admin-status">{status}</p>}
 
       <div className="admin-filters">
-        <input placeholder="Search filename…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder={t.searchFilename} value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="filter-count">
           {shown.length} / {docs.length}
         </span>
@@ -253,9 +256,9 @@ function DocumentsPanel() {
       <table className="admin-table">
         <thead>
           <tr>
-            <th>File</th>
-            <th>Chunks</th>
-            <th>Added</th>
+            <th>{t.colFile}</th>
+            <th>{t.colChunks}</th>
+            <th>{t.colAdded}</th>
             <th></th>
           </tr>
         </thead>
@@ -275,7 +278,7 @@ function DocumentsPanel() {
                     })
                   }
                 >
-                  Delete
+                  {t.delete}
                 </button>
               </td>
             </tr>
@@ -288,6 +291,7 @@ function DocumentsPanel() {
 
 // ---------------- Audit ----------------
 function AuditPanel() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<AuditEntry[]>([]);
   const [q, setQ] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
@@ -309,25 +313,25 @@ function AuditPanel() {
 
   return (
     <div>
-      <h3>Query audit log</h3>
-      <p className="admin-note">Who asked what, and whether it was answered from the library or the web.</p>
+      <h3>{t.auditHeading}</h3>
+      <p className="admin-note">{t.auditNote}</p>
       {error && <p className="login-error">{error}</p>}
 
       <div className="admin-filters">
         <input
-          placeholder="Search question or user…"
+          placeholder={t.searchQuestionUser}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
-          <option value="all">All sources</option>
+          <option value="all">{t.allSources}</option>
           <option value="internal">internal</option>
           <option value="web">web</option>
           <option value="chat">chat</option>
           <option value="none">none</option>
         </select>
         <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
-          <option value="all">All users</option>
+          <option value="all">{t.allUsers}</option>
           {users.map((u) => (
             <option key={u} value={u}>
               {u}
@@ -335,7 +339,7 @@ function AuditPanel() {
           ))}
         </select>
         <button className="refresh-btn" onClick={refresh}>
-          Refresh
+          {t.refresh}
         </button>
         <span className="filter-count">
           {shown.length} / {rows.length}
@@ -345,10 +349,10 @@ function AuditPanel() {
       <table className="admin-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>User</th>
-            <th>Source</th>
-            <th>Question</th>
+            <th>{t.colTime}</th>
+            <th>{t.colUser}</th>
+            <th>{t.colSource}</th>
+            <th>{t.colQuestion}</th>
           </tr>
         </thead>
         <tbody>

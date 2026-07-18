@@ -1,14 +1,11 @@
 import { useEffect, useRef } from "react";
+import { useI18n } from "../i18n";
 import type { UiMessage } from "./Chat";
 import MessageBubble from "./MessageBubble";
 
-const SUGGESTIONS = [
-  "Washer drum won't spin — where do I start?",
-  "What does error code E14 mean on the ironer?",
-  "Steam valve is leaking — safe shutdown steps?",
-];
-
 export default function MessageList({ messages }: { messages: UiMessage[] }) {
+  const { t } = useI18n();
+  const suggestions = [t.suggestion1, t.suggestion2, t.suggestion3];
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -19,13 +16,10 @@ export default function MessageList({ messages }: { messages: UiMessage[] }) {
     return (
       <div className="message-list empty">
         <div className="empty-state">
-          <h1>How can I help with your service call?</h1>
-          <p>
-            Ask a troubleshooting question. Answers come from the manuals in your library —
-            with source citations. If it's not in the manuals, I'll say so.
-          </p>
+          <h1>{t.emptyTitle}</h1>
+          <p>{t.emptyDesc}</p>
           <ul className="suggestions">
-            {SUGGESTIONS.map((s) => (
+            {suggestions.map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ul>

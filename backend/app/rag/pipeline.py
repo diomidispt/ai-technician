@@ -305,12 +305,20 @@ async def run(history: list[dict], user_email: str) -> AsyncIterator[dict]:
             yield _sse("done", {"source": "web", "citations": citations})
             return
 
-    # 3. Nothing internal, no web result — refuse honestly.
-    msg = (
-        "I couldn't find this in the internal manual library"
-        + (" or on the web" if settings.web_fallback_enabled else "")
-        + ", so I can't answer it reliably. Please rephrase, or escalate to engineering."
-    )
+    # 3. Nothing internal, no web result — refuse honestly (in the question's language).
+    if language == "Greek":
+        msg = (
+            "Δεν το βρήκα στα εγχειρίδια"
+            + (" ούτε στο web" if settings.web_fallback_enabled else "")
+            + ", οπότε δεν μπορώ να απαντήσω αξιόπιστα. Δοκιμάστε να το διατυπώσετε αλλιώς ή "
+            "απευθυνθείτε στο τμήμα μηχανικής."
+        )
+    else:
+        msg = (
+            "I couldn't find this in the internal manual library"
+            + (" or on the web" if settings.web_fallback_enabled else "")
+            + ", so I can't answer it reliably. Please rephrase, or escalate to engineering."
+        )
     for word in msg.split(" "):
         yield _sse("token", {"delta": word + " "})
     _record_audit(user_email, question, "none")

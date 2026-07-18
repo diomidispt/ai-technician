@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useI18n } from "../i18n";
 
 interface Props {
   /** Forced mode: shown as a blocking screen after login when a reset is required. */
@@ -10,6 +11,7 @@ interface Props {
 
 export default function ChangePassword({ forced = false, onClose }: Props) {
   const { changePassword, logout } = useAuth();
+  const { t } = useI18n();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -21,7 +23,7 @@ export default function ChangePassword({ forced = false, onClose }: Props) {
     e.preventDefault();
     setError("");
     if (next !== confirm) {
-      setError("New passwords don't match");
+      setError(t.cpMismatch);
       return;
     }
     setBusy(true);
@@ -30,7 +32,7 @@ export default function ChangePassword({ forced = false, onClose }: Props) {
       setDone(true);
       if (!forced && onClose) setTimeout(onClose, 900);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change password");
+      setError(err instanceof Error ? err.message : t.cpFailed);
     } finally {
       setBusy(false);
     }
@@ -41,16 +43,12 @@ export default function ChangePassword({ forced = false, onClose }: Props) {
       <form className="login-card" onSubmit={onSubmit}>
         <div className="brand login-brand">
           <span className="brand-mark">J</span>
-          <strong>Change password</strong>
+          <strong>{t.cpTitle}</strong>
         </div>
-        <p className="login-sub">
-          {forced
-            ? "Your account requires a new password before you can continue."
-            : "Update the password for your account."}
-        </p>
+        <p className="login-sub">{forced ? t.cpForcedSubtitle : t.cpNormalSubtitle}</p>
 
         <label>
-          Current password
+          {t.cpCurrent}
           <input
             type="password"
             value={current}
@@ -60,7 +58,7 @@ export default function ChangePassword({ forced = false, onClose }: Props) {
           />
         </label>
         <label>
-          New password
+          {t.cpNew}
           <input
             type="password"
             value={next}
@@ -70,7 +68,7 @@ export default function ChangePassword({ forced = false, onClose }: Props) {
           />
         </label>
         <label>
-          Confirm new password
+          {t.cpConfirm}
           <input
             type="password"
             value={confirm}
@@ -81,20 +79,20 @@ export default function ChangePassword({ forced = false, onClose }: Props) {
         </label>
 
         {error && <p className="login-error">{error}</p>}
-        {done && <p className="admin-status">Password updated.</p>}
+        {done && <p className="admin-status">{t.cpUpdated}</p>}
 
         <button type="submit" className="login-btn" disabled={busy || done}>
-          {busy ? "Updating…" : "Update password"}
+          {busy ? t.cpUpdating : t.cpUpdate}
         </button>
 
         {forced ? (
           <button type="button" className="link-btn" onClick={logout}>
-            Sign out instead
+            {t.cpSignOutInstead}
           </button>
         ) : (
           onClose && (
             <button type="button" className="link-btn" onClick={onClose}>
-              Cancel
+              {t.cancel}
             </button>
           )
         )}

@@ -1,13 +1,15 @@
 import ReactMarkdown from "react-markdown";
+import { useI18n } from "../i18n";
 import type { UiMessage } from "./Chat";
 
 export default function MessageBubble({ message }: { message: UiMessage }) {
+  const { t } = useI18n();
   const isUser = message.role === "user";
   const showCursor = message.streaming && message.content.length === 0;
 
   return (
     <div className={`row ${isUser ? "row-user" : "row-assistant"}`}>
-      <div className="avatar">{isUser ? "You" : "J"}</div>
+      <div className="avatar">{isUser ? t.avatarYou : "J"}</div>
       <div className="bubble">
         {showCursor ? (
           <span className="typing-dots" aria-label="Assistant is typing">
@@ -26,7 +28,7 @@ export default function MessageBubble({ message }: { message: UiMessage }) {
 
         {/* Source badge: internal manuals vs an external web-search answer. */}
         {!isUser && !message.streaming && message.source === "web" && (
-          <div className="source-badge web">🌐 From a web search — verify before acting</div>
+          <div className="source-badge web">{t.webBadge}</div>
         )}
 
         {/* Citations: manual+page for internal answers, title+link for web answers. */}

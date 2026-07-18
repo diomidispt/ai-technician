@@ -6,6 +6,7 @@ import {
   getConversation,
   listConversations,
 } from "../api/conversations";
+import { useI18n } from "../i18n";
 import Composer from "./Composer";
 import ConversationSidebar from "./ConversationSidebar";
 import MessageList from "./MessageList";
@@ -26,6 +27,7 @@ interface ChatProps {
 }
 
 export default function Chat({ onSignOut, onChangePassword }: ChatProps) {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
@@ -160,12 +162,12 @@ export default function Chat({ onSignOut, onChangePassword }: ChatProps) {
         <div className="chat-mobilebar">
           <button
             className="sidebar-toggle"
-            aria-label="Show conversations"
+            aria-label={t.showConversations}
             onClick={() => setSidebarOpen(true)}
           >
             ☰
           </button>
-          <span className="chat-mobilebar-title">Chats</span>
+          <span className="chat-mobilebar-title">{t.chatsTitle}</span>
         </div>
         <MessageList messages={messages} />
         <Composer onSend={send} disabled={busy} />
